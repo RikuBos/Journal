@@ -3,7 +3,7 @@
    UI: Notion-inspired editorial layout + Liquid Glass dark
    ============================================================ */
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;450;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap');
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -55,8 +55,8 @@
   --t4: rgba(147,197,253,0.22);
 
   /* ── Font ── */
-  --font: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-  --mono: 'JetBrains Mono', monospace;
+  --font: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  --mono: 'IBM Plex Mono', 'Fira Code', monospace;
 
   /* ── Radius ── */
   --r1: 6px;
@@ -201,7 +201,7 @@ body::before {
   border-radius: var(--r2);
   cursor: pointer;
   color: var(--t3);
-  font-size: 13px; font-weight: 450;
+  font-size: 13px; font-weight: 400;
   white-space: nowrap; overflow: hidden;
   transition: all var(--duration) var(--ease);
   position: relative;
@@ -227,7 +227,7 @@ body::before {
 .nav-icon { width: 16px; height: 16px; min-width: 16px; opacity: 0.6; flex-shrink: 0; }
 .nav-item.active .nav-icon { opacity: 1; }
 .nav-item:hover .nav-icon { opacity: 0.8; }
-.nav-label { font-size: 13px; overflow: hidden; transition: opacity 0.15s, width 0.15s; }
+.nav-label { font-size: 13px; overflow: hidden; transition: opacity 0.15s, width 0.15s; letter-spacing: 0.01em; }
 .sidebar.collapsed .nav-label { opacity: 0; width: 0; }
 
 .sidebar-footer {
@@ -269,8 +269,8 @@ body::before {
   padding: 32px 32px 0;
 }
 .page-title {
-  font-size: 22px; font-weight: 650; color: var(--t1);
-  letter-spacing: -0.5px; line-height: 1.2;
+  font-size: 21px; font-weight: 700; color: var(--t1);
+  letter-spacing: -0.3px; line-height: 1.25;
 }
 .page-subtitle { font-size: 12.5px; color: var(--t3); margin-top: 4px; }
 .page-body { padding: 20px 32px 40px; }
@@ -324,9 +324,9 @@ body::before {
   border-bottom: 1px solid var(--border-1);
 }
 .card-title {
-  font-size: 11px; font-weight: 600;
+  font-size: 10.5px; font-weight: 600;
   color: var(--t3);
-  text-transform: uppercase; letter-spacing: 0.8px;
+  text-transform: uppercase; letter-spacing: 0.9px;
 }
 .card-body { padding: 16px 18px; }
 
@@ -350,9 +350,9 @@ body::before {
   text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;
 }
 .stat-value {
-  font-size: 22px; font-weight: 650; color: var(--t1);
-  font-family: var(--mono); line-height: 1.1;
-  letter-spacing: -0.5px;
+  font-size: 20px; font-weight: 700; color: var(--t1);
+  font-family: var(--mono); line-height: 1.15;
+  letter-spacing: -0.3px;
 }
 .stat-value.positive { color: var(--green); }
 .stat-value.negative { color: var(--red); }
@@ -383,7 +383,7 @@ body::before {
   display: inline-flex; align-items: center; gap: 7px;
   padding: 8px 16px;
   border-radius: var(--r2);
-  font-size: 13px; font-weight: 500; font-family: var(--font);
+  font-size: 13px; font-weight: 500; font-family: var(--font); letter-spacing: 0.01em;
   cursor: pointer; border: none;
   transition: all var(--duration) var(--ease);
   white-space: nowrap; line-height: 1;
@@ -444,6 +444,7 @@ body::before {
   padding: 9px 13px;
   font-size: 13px; color: var(--t1);
   font-family: var(--font);
+  letter-spacing: 0.01em;
   transition: all var(--duration) var(--ease);
   outline: none;
 }
@@ -542,16 +543,16 @@ table.data-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
 }
 .data-table th:hover { color: var(--t2); }
 .data-table td {
-  padding: 11px 16px;
+  padding: 10px 16px;
   border-bottom: 1px solid rgba(255,255,255,0.04);
   color: var(--t2);
   white-space: nowrap;
-  font-family: var(--mono); font-size: 12px;
+  font-family: var(--mono); font-size: 11.5px;
 }
 .data-table tbody tr { transition: background var(--duration) var(--ease); }
 .data-table tbody tr:hover td { background: rgba(255,255,255,0.025); }
 .data-table tbody tr:last-child td { border-bottom: none; }
-.data-table td.text-col { font-family: var(--font); color: var(--t1); font-size: 12.5px; font-weight: 450; }
+.data-table td.text-col { font-family: var(--font); color: var(--t1); font-size: 12.5px; font-weight: 500; }
 
 /* ── MODAL ─────────────────────────────────────────────────── */
 .modal-overlay {
@@ -587,7 +588,7 @@ table.data-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
   backdrop-filter: blur(20px);
   z-index: 1; border-radius: var(--r4) var(--r4) 0 0;
 }
-.modal-title { font-size: 15px; font-weight: 600; color: var(--t1); letter-spacing: -0.2px; }
+.modal-title { font-size: 15px; font-weight: 600; color: var(--t1); letter-spacing: -0.1px; }
 .modal-close {
   width: 30px; height: 30px; display: flex; align-items: center; justify-content: center;
   cursor: pointer; border-radius: var(--r1); color: var(--t3);
@@ -662,8 +663,8 @@ table.data-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
   border-bottom: 1px solid rgba(255,255,255,0.04);
 }
 .metric-row:last-child { border-bottom: none; }
-.metric-name { font-size: 12.5px; color: var(--t2); }
-.metric-val  { font-size: 12.5px; font-weight: 550; color: var(--t1); font-family: var(--mono); }
+.metric-name { font-size: 12.5px; color: var(--t2); font-weight: 400; }
+.metric-val  { font-size: 12.5px; font-weight: 600; color: var(--t1); font-family: var(--mono); }
 
 /* ── INFO GRID ───────────────────────────────────────────────── */
 .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0; }
