@@ -67,10 +67,11 @@ var Calc = {
     return risk > 0 ? +(reward / risk).toFixed(2) : 0;
   },
 
-  pl(entry, exit, size, direction) {
+  pl(entry, exit, size, direction, instrument) {
     if (!exit) return null;
-    const diff = direction === 'Long' ? exit - entry : entry - exit;
-    return +(diff * size).toFixed(2);
+    var diff = direction === 'Long' ? exit - entry : entry - exit;
+    var pv   = getPointValue(instrument);
+    return +(diff * size * pv).toFixed(2);
   },
 
   rMultiple(pl, riskAmt) {
