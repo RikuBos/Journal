@@ -77,13 +77,12 @@ function AppProvider({ children }) {
     const item = { ...trade, id: trade.id || genId(), createdAt: trade.createdAt || now, updatedAt: now };
     // Auto-calculations
     if (item.entryPrice && item.stopLoss && item.positionSize) {
-      item.riskAmount     = +Math.abs((+item.entryPrice - +item.stopLoss) * +item.positionSize).toFixed(2);
+      item.riskAmount     = Calc.pointRisk(+item.entryPrice, +item.stopLoss, +item.positionSize, item.instrument);
       if (activeAccount)
         item.riskPercentage = +(item.riskAmount / activeAccount.startingBalance * 100).toFixed(2);
     }
     if (item.exitPrice && item.entryPrice && item.positionSize) {
-      const diff      = item.direction === 'Long' ? +item.exitPrice - +item.entryPrice : +item.entryPrice - +item.exitPrice;
-      item.profitLoss = +(diff * +item.positionSize).toFixed(2);
+      item.profitLoss = Calc.pl(+item.entryPrice, +item.exitPrice, +item.positionSize, item.direction, item.instrument);
       if (item.riskAmount > 0)
         item.rMultiple = +(item.profitLoss / item.riskAmount).toFixed(2);
       item.status = 'Closed';

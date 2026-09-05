@@ -1,7 +1,56 @@
 // ============================================================
 // CALCULATION ENGINE — Pure utility functions
 // ============================================================
-const Calc = {
+
+// Point value per instrument (dollar value per 1 point move, per 1 contract/lot)
+// Futures: per contract. Forex: per standard lot (100,000 units). Crypto: varies.
+var POINT_VALUES = {
+  // US Equity Futures (CME)
+  'NQ':   20,      // Nasdaq-100 E-mini: $20 per point
+  'MNQ':   2,      // Micro Nasdaq-100: $2 per point
+  'ES':   50,      // S&P 500 E-mini: $50 per point
+  'MES':   5,      // Micro S&P 500: $5 per point
+  'YM':    5,      // Dow Jones E-mini: $5 per point
+  'MYM':   0.50,   // Micro Dow: $0.50 per point
+  'RTY':  50,      // Russell 2000 E-mini: $50 per point
+  // Commodities
+  'CL':  1000,     // Crude Oil: $1000 per point ($10 per tick of 0.01)
+  'GC':   100,     // Gold: $100 per point ($10 per tick of 0.10)
+  'SI':  5000,     // Silver: $5000 per point
+  // Forex (per standard lot, pip value approx)
+  'EURUSD': 10,    // $10 per pip per standard lot
+  'GBPUSD': 10,
+  'USDJPY': 10,
+  'GBPJPY': 10,
+  'USDCAD': 10,
+  'AUDUSD': 10,
+  'NZDUSD': 10,
+  'USDCHF': 10,
+  // Metals spot
+  'XAUUSD': 100,   // Gold spot: ~$100 per $1 move per lot
+  'XAGUSD': 5000,
+  // Crypto (per coin, treat size as number of coins)
+  'BTCUSD': 1,
+  'ETHUSD': 1,
+};
+
+function getPointValue(instrument) {
+  if (!instrument) return 1;
+  var upper = instrument.toUpperCase();
+  return POINT_VALUES[upper] || 1;
+}
+
+window.POINT_VALUES = POINT_VALUES;
+window.getPointValue = getPointValue;
+
+var Calc = {
+
+  pointRisk(entry, sl, size, instrument) {
+    if (!entry || !sl || !size) return 0;
+    var dist = Math.abs(entry - sl);
+    var pv   = getPointValue(instrument);
+    return +(dist * size * pv).toFixed(2);
+  },
 
   riskAmount(balance, riskPct) {
     return balance * (riskPct / 100);

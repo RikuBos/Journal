@@ -134,7 +134,7 @@ function PlaybookPage() {
       h('div', { className: 'input-group' }, h('label', { className: 'input-label' }, 'Notes'), h('textarea', { className: 'textarea-field', value: f.notes, onChange: e => set('notes', e.target.value) })),
       h('div', { style: { display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 12 } },
         h('button', { className: 'btn btn-secondary', onClick: onClose }, 'Cancel'),
-        h('button', { className: 'btn btn-primary', onClick: () => { if (!f.name.trim()) return; onSave(f); onClose(); } }, h(UI.Icon, { name: 'save', size: 13 }), setup ? 'Update' : 'Save Setup')
+        h('button', { className: 'btn btn-primary', onClick: () => { if (!f.name.trim()) return; onSave(f); onClose(); } }, setup ? 'Update' : 'Save Setup')
       )
     );
   }
@@ -295,7 +295,7 @@ function ReviewsPage() {
       )),
       h('div', { style: { display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 12 } },
         h('button', { className: 'btn btn-secondary', onClick: onClose }, 'Cancel'),
-        h('button', { className: 'btn btn-primary', onClick: () => { onSave({ ...f, id: existing?.id, weekStart: wk.weekStart, weekEnd: wk.weekEnd, totalTrades: trs.length, winRate: wr, totalR, totalPL: wk.pl }); onClose(); } }, h(UI.Icon, { name: 'save', size: 13 }), 'Save Review')
+        h('button', { className: 'btn btn-primary', onClick: () => { onSave({ ...f, id: existing?.id, weekStart: wk.weekStart, weekEnd: wk.weekEnd, totalTrades: trs.length, winRate: wr, totalR, totalPL: wk.pl }); onClose(); } }, 'Save Review')
       )
     );
   }
@@ -313,7 +313,7 @@ function ReviewsPage() {
       h('div', { className: 'input-group' }, h('label', { className: 'input-label' }, 'Monthly Reflection'), h('textarea', { className: 'textarea-field', style: { minHeight: 150 }, value: reflection, onChange: e => setRef(e.target.value), placeholder: 'Summarize the month: lessons, emotional state, what to carry forward...' })),
       h('div', { style: { display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 12 } },
         h('button', { className: 'btn btn-secondary', onClick: onClose }, 'Cancel'),
-        h('button', { className: 'btn btn-primary', onClick: () => { onSave({ id: existing?.id, reflection, month: mo.month, year: mo.year, totalPL: mo.pl, winRate: wr, totalR, profitFactor: Calc.profitFactor(trs) }); onClose(); } }, h(UI.Icon, { name: 'save', size: 13 }), 'Save Review')
+        h('button', { className: 'btn btn-primary', onClick: () => { onSave({ id: existing?.id, reflection, month: mo.month, year: mo.year, totalPL: mo.pl, winRate: wr, totalR, profitFactor: Calc.profitFactor(trs) }); onClose(); } }, 'Save Review')
       )
     );
   }
@@ -446,7 +446,7 @@ function JournalPage() {
       ta("Tomorrow's Plan",      'tomorrowPlan',         'Focus and plan for tomorrow'),
       h('div', { style: { display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 12 } },
         h('button', { className: 'btn btn-secondary', onClick: onClose }, 'Cancel'),
-        h('button', { className: 'btn btn-primary', onClick: () => { onSave({ ...f, id: existing?.id, date: selDate, accountId: activeAccountId, dailyPL: dayPL, tradesTaken: dayTrades.map(t => t.id) }); onClose(); } }, h(UI.Icon, { name: 'save', size: 13 }), 'Save Journal')
+        h('button', { className: 'btn btn-primary', onClick: () => { onSave({ ...f, id: existing?.id, date: selDate, accountId: activeAccountId, dailyPL: dayPL, tradesTaken: dayTrades.map(t => t.id) }); onClose(); } }, 'Save Journal')
       )
     );
   }
@@ -603,7 +603,7 @@ function SettingsPage() {
   return h('div', null,
     h('div', { className: 'page-header' },
       h('div', null, h('div', { className: 'page-title' }, 'Settings'), h('div', { className: 'page-subtitle' }, 'Configure your trading journal')),
-      h('button', { className: 'btn btn-primary', onClick: async () => { await saveSettings(f); UI.toast('Settings saved', 'success'); } }, h(UI.Icon, { name: 'save', size: 14 }), 'Save Settings')
+      h('button', { className: 'btn btn-primary', onClick: async () => { await saveSettings(f); UI.toast('Settings saved', 'success'); } }, 'Save Settings')
     ),
     h('div', { className: 'page-tabs' },
       [{ id:'general', label:'General' }, { id:'trading', label:'Trading Concepts' }, { id:'data', label:'Data Management' }, { id:'discord', label:'Discord Webhook' }].map(t =>

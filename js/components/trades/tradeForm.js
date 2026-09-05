@@ -5,15 +5,18 @@ var useFS = React.useState;
 var useFM = React.useMemo;
 var useFR = React.useRef;
 
-function RiskCalc({ account, onApply }) {
-  const [v, setV] = useFS({
+function RiskCalc({ account, instrument, onApply }) {
+  var [v, setV] = useFS({
     balance: account?.startingBalance || 5000,
     riskPct: 1, entry: '', sl: '', tp: '', size: 1,
   });
-  const set = (k, val) => setV(p => ({ ...p, [k]: val }));
-  const riskAmt  = (v.balance * v.riskPct) / 100;
-  const rr       = v.entry && v.sl && v.tp ? Calc.rr(+v.entry, +v.sl, +v.tp) : null;
-  const potProfit = rr != null ? riskAmt * rr : null;
+  var set = function(k, val) { setV(function(p) { return Object.assign({}, p, {[k]: val}); }); };
+  var pv       = getPointValue(instrument || 'NQ');
+  var riskAmt  = v.entry && v.sl && v.size
+    ? Calc.pointRisk(+v.entry, +v.sl, +v.size, instrument)
+    : (v.balance * v.riskPct) / 100;
+  var rr       = v.entry && v.sl && v.tp ? Calc.rr(+v.entry, +v.sl, +v.tp) : null;
+  var potProfit = rr != null ? riskAmt * rr : null;
   return h('div', { style: { background: 'rgba(8,9,13,0.6)', border: '1px solid var(--border-1)', borderRadius: 8, padding: 14, marginBottom: 14 } },
     h('div', { className: 'section-heading' }, 'Risk Calculator'),
     h('div', { className: 'form-row' },
@@ -94,23 +97,22 @@ function TradeForm({ trade, onSave, onClose }) {
   const set = (k, v) => setF(p => ({ ...p, [k]: v }));
 
   // Auto-calcs
-  const autoRisk = useFM(() => {
+  var autoRisk = useFM(function() {
     if (!f.entryPrice || !f.stopLoss || !f.positionSize) return null;
-    return +Math.abs((+f.entryPrice - +f.stopLoss) * +f.positionSize).toFixed(2);
-  }, [f.entryPrice, f.stopLoss, f.positionSize]);
+    return Calc.pointRisk(+f.entryPrice, +f.stopLoss, +f.positionSize, f.instrument);
+  }, [f.entryPrice, f.stopLoss, f.positionSize, f.instrument]);
 
-  const autoRR = useFM(() => {
+  var autoRR = useFM(function() {
     if (!f.entryPrice || !f.stopLoss || !f.takeProfit) return null;
     return Calc.rr(+f.entryPrice, +f.stopLoss, +f.takeProfit);
   }, [f.entryPrice, f.stopLoss, f.takeProfit]);
 
-  const autoPL = useFM(() => {
+  var autoPL = useFM(function() {
     if (!f.exitPrice || !f.entryPrice || !f.positionSize) return null;
-    const d = f.direction === 'Long' ? +f.exitPrice - +f.entryPrice : +f.entryPrice - +f.exitPrice;
-    return +(d * +f.positionSize).toFixed(2);
-  }, [f.exitPrice, f.entryPrice, f.positionSize, f.direction]);
+    return Calc.pl(+f.entryPrice, +f.exitPrice, +f.positionSize, f.direction, f.instrument);
+  }, [f.exitPrice, f.entryPrice, f.positionSize, f.direction, f.instrument]);
 
-  const autoRM = useFM(() => {
+  var autoRM = useFM(() => {
     if (autoPL == null || !autoRisk) return null;
     return +(autoPL / autoRisk).toFixed(2);
   }, [autoPL, autoRisk]);
@@ -178,7 +180,12 @@ function TradeForm({ trade, onSave, onClose }) {
           )
         ),
         h('div', { className: 'input-group' },
-          h('label', { className: 'input-label' }, 'Instrument'),
+          h('label', { className: 'input-label' },
+            'Instrument',
+            f.instrument && h('span', { style: { color: 'var(--t3)', fontWeight: 400, marginLeft: 6 } },
+              '— ' + Calc.fmt.currency(getPointValue(f.instrument)) + '/pt'
+            )
+          ),
           h('select', { className: 'select-field', value: f.instrument, onChange: e => set('instrument', e.target.value) },
             INSTRUMENTS.map(i => h('option', { key: i, value: i }, i))
           )
@@ -214,7 +221,7 @@ function TradeForm({ trade, onSave, onClose }) {
         h('div', { className: 'calc-display' }, h('div', { className: 'label' }, 'R:R (auto)'),         h('div', { className: 'value' }, autoRR != null ? `1 : ${autoRR.toFixed(2)}` : '—')),
       ),
       h('button', { className: 'btn btn-secondary btn-sm', style: { marginBottom: 14 }, onClick: () => setCalc(p => !p) }, h(UI.Icon, { name: 'zap', size: 12 }), showCalc ? 'Hide Calculator' : 'Risk Calculator'),
-      showCalc && h(RiskCalc, { account: activeAccount }),
+      showCalc && h(RiskCalc, { account: activeAccount, instrument: f.instrument }),
     ),
 
     setup: h('div', null,
@@ -313,7 +320,7 @@ function TradeForm({ trade, onSave, onClose }) {
     tabs[tab],
     h('div', { style: { display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16, paddingTop: 12, borderTop: '1px solid var(--border-1)' } },
       h('button', { className: 'btn btn-secondary', onClick: onClose }, 'Cancel'),
-      h('button', { className: 'btn btn-primary',   onClick: handleSave }, h(UI.Icon, { name: 'save', size: 13 }), trade ? 'Update Trade' : 'Save Trade')
+      h('button', { className: 'btn btn-primary',   onClick: handleSave }, trade ? 'Update Trade' : 'Save Trade')
     )
   );
 }
