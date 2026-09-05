@@ -26,8 +26,8 @@ function MistakesPage() {
       ...m,
       avgLoss:     m.losses.length ? m.losses.reduce((a, b) => a + b, 0) / m.losses.length : 0,
       pctOfTotal:  total > 0 ? (m.count / total) * 100 : 0,
-      topSession:  Object.entries(m.sessions).sort((a, b) => b[1] - a[1])[0]?.[0] || '—',
-      topSetup:    Object.entries(m.setups).sort((a, b) => b[1] - a[1])[0]?.[0] || '—',
+      topSession:  Object.entries(m.sessions).sort((a, b) => b[1] - a[1])[0]?.[0] || ' ',
+      topSetup:    Object.entries(m.setups).sort((a, b) => b[1] - a[1])[0]?.[0] || ' ',
     })).sort((a, b) => b.totalLoss - a.totalLoss);
   }, [accountTrades]);
 
@@ -150,14 +150,21 @@ function PlaybookPage() {
         : h('div', { style: { display: 'grid', gridTemplateColumns: selected ? '280px 1fr' : 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16, transition: 'all 0.2s' } },
             // Left: setup cards
             h('div', { style: { display: 'flex', flexDirection: 'column', gap: 10, maxHeight: selected ? '78vh' : 'none', overflowY: selected ? 'auto' : 'visible' } },
-              playbook.map(s => h('div', { key: s.id, className: 'glass-card', style: { cursor: 'pointer', border: selected?.id === s.id ? '1px solid var(--accent)' : undefined }, onClick: () => setSelected(selected?.id === s.id ? null : s) },
+              playbook.map(s => h('div', {
+              key: s.id, className: 'glass-card',
+              style: { cursor: 'pointer', border: selected && selected.id === s.id ? '1px solid var(--accent)' : undefined },
+              onClick: function() { setSelected(selected && selected.id === s.id ? null : s); },
+              onDoubleClick: function(e) {
+                UI.showContextMenu(e, [
+                  { label: 'Edit Setup',   icon: 'edit',  action: function() { setEditSetup(s); setShowForm(true); } },
+                  { label: 'Delete Setup', icon: 'trash', danger: true, action: function() { setConfirmDel(s.id); } },
+                ]);
+              },
+            },
                 h('div', { style: { padding: 13 } },
                   h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 7 } },
                     h('div', { style: { fontSize: 13.5, fontWeight: 650, color: 'var(--t1)' } }, s.name),
-                    h('div', { style: { display: 'flex', gap: 4 } },
-                      h('button', { className: 'btn btn-secondary btn-icon sm', onClick: e => { e.stopPropagation(); setEditSetup(s); setShowForm(true); } }, h(UI.Icon, { name: 'edit', size: 11 })),
-                      h('button', { className: 'btn btn-danger  btn-icon sm', onClick: e => { e.stopPropagation(); setConfirmDel(s.id); } }, h(UI.Icon, { name: 'trash', size: 11 }))
-                    )
+                    
                   ),
                   s.description && h('div', { style: { fontSize: 11.5, color: 'var(--t3)', marginBottom: 8, lineHeight: 1.5 } }, s.description.substring(0, 100) + (s.description.length > 100 ? '…' : '')),
                   h('div', { style: { display: 'flex', flexWrap: 'wrap', gap: 4 } },
@@ -260,7 +267,7 @@ function ReviewsPage() {
     const best  = trs.reduce((b, t) => !b || (t.profitLoss||0) > (b.profitLoss||0) ? t : b, null);
     const worst = trs.reduce((w, t) => !w || (t.profitLoss||0) < (w.profitLoss||0) ? t : w, null);
     const misMap = trs.filter(t => t.mistake).reduce((m, t) => { m[t.mistake] = (m[t.mistake]||0)+1; return m; }, {});
-    const topMistake = Object.entries(misMap).sort((a,b) => b[1]-a[1])[0]?.[0] || '—';
+    const topMistake = Object.entries(misMap).sort((a,b) => b[1]-a[1])[0]?.[0] || ' ';
     const [f, setF] = React.useState({ whatWorked: existing?.whatWorked||'', whatFailed: existing?.whatFailed||'', needsImprovement: existing?.needsImprovement||'', nextWeekFocus: existing?.nextWeekFocus||'' });
     const set = (k, v) => setF(p => ({ ...p, [k]: v }));
     return h('div', null,
@@ -274,8 +281,8 @@ function ReviewsPage() {
       ),
       h('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14 } },
         [
-          { l: 'Best Trade',     v: best  ? `${best.instrument} ${Calc.fmt.currency(best.profitLoss||0)}`  : '—', cls: 'text-pos' },
-          { l: 'Worst Trade',    v: worst ? `${worst.instrument} ${Calc.fmt.currency(worst.profitLoss||0)}` : '—', cls: 'text-neg' },
+          { l: 'Best Trade',     v: best  ? `${best.instrument} ${Calc.fmt.currency(best.profitLoss||0)}`  : ' ', cls: 'text-pos' },
+          { l: 'Worst Trade',    v: worst ? `${worst.instrument} ${Calc.fmt.currency(worst.profitLoss||0)}` : ' ', cls: 'text-neg' },
           { l: 'Top Mistake',    v: topMistake },
           { l: 'Rule Compliance', v: Calc.fmt.pct(Calc.ruleCompliance(trs)) },
         ].map((x, i) => h('div', { key: i, className: 'metric-row' },
@@ -389,7 +396,7 @@ function ReviewsPage() {
                       { l:'Win Rate', v:Calc.fmt.pct(wr), cls:wr>=50?'text-pos':'text-neg' },
                       { l:'Total R',  v:Calc.fmt.r(totalR), cls:totalR>=0?'text-pos':'text-neg' },
                       { l:'P/L',      v:Calc.fmt.currency(mo.pl), cls:mo.pl>=0?'text-pos':'text-neg' },
-                      { l:'P-Factor', v:isFinite(Calc.profitFactor(mo.trades)) ? Calc.profitFactor(mo.trades).toFixed(2) : '—' },
+                      { l:'P-Factor', v:isFinite(Calc.profitFactor(mo.trades)) ? Calc.profitFactor(mo.trades).toFixed(2) : ' ' },
                     ].map((x, i) => h('div', { key: i, style: { textAlign: 'center' } },
                       h('div', { style: { fontSize: 10, color: 'var(--t3)', marginBottom: 3 } }, x.l),
                       h('div', { style: { fontSize: 14, fontWeight: 650, fontFamily: 'var(--mono)' }, className: x.cls||'' }, x.v)
@@ -498,7 +505,7 @@ function JournalPage() {
             ? h('div', { className: 'glass-card', style: { marginBottom: 16 } },
                 h('div', { className: 'card-header' },
                   h('span', { className: 'card-title' }, `Journal — ${selDate}`),
-                  h('button', { className: 'btn btn-secondary btn-sm', onClick: () => setShowForm(true) }, h(UI.Icon, { name: 'edit', size: 12 }), 'Edit')
+                  h('button', { className: 'btn btn-secondary btn-sm', onClick: () => setShowForm(true) }, 'Edit')
                 ),
                 h('div', { className: 'card-body' },
                   h('div', { style: { display: 'flex', flexDirection: 'column', gap: 13 } },

@@ -137,12 +137,7 @@ function AccountsPage() {
                 ),
                 h('div', { style: { display: 'flex', gap: 6 } },
                   !isActive && h('button', { className: 'btn btn-primary btn-sm', style: { flex: 1 }, onClick: () => { switchAccount(acc.id); UI.toast('Active account switched', 'success'); } }, 'Set Active'),
-                  h('button', { className: 'btn btn-secondary btn-sm', onClick: () => { setEditAcc(acc); setShowForm(true); } },
-                    h(UI.Icon, { name: 'edit', size: 12 }), 'Edit'
-                  ),
-                  h('button', { className: 'btn btn-danger btn-sm', onClick: () => setConfirmDel(acc.id) },
-                    h(UI.Icon, { name: 'trash', size: 12 }), 'Delete'
-                  )
+                  
                 )
               );
             })
@@ -348,7 +343,7 @@ function AnalyticsPage() {
       h('table', { className: 'data-table' },
         h('thead', null, h('tr', null, cols.map(c => h('th', { key: c.key }, c.label)))),
         h('tbody', null, data.map((row, i) => h('tr', { key: i },
-          cols.map(c => h('td', { key: c.key, className: c.cls ? '' : undefined }, c.render ? c.render(row) : (row[c.key] ?? '—')))
+          cols.map(c => h('td', { key: c.key, className: c.cls ? '' : undefined }, c.render ? c.render(row) : (row[c.key] ?? ' ')))
         )))
       )
     );
@@ -359,9 +354,9 @@ function AnalyticsPage() {
     h('div', { className: 'page-header' },
       h('div', null, h('div', { className: 'page-title' }, 'Analytics'), h('div', { className: 'page-subtitle' }, `${filtered.length} trades analyzed`)),
       h('div', { style: { display: 'flex', gap: 8, flexWrap: 'wrap' } },
-        h('select', { className: 'select-field', style: { width: 130 }, value: filterSession, onChange: e => setFS(e.target.value) }, h('option', { value: '' }, 'All Sessions'), SESSIONS.map(s => h('option', { key: s, value: s }, s))),
-        h('select', { className: 'select-field', style: { width: 120 }, value: filterSetup,   onChange: e => setFSt(e.target.value) }, h('option', { value: '' }, 'All Setups'),   uniqueSetups.map(s => h('option', { key: s, value: s }, s))),
-        h('select', { className: 'select-field', style: { width: 100 }, value: filterDir,     onChange: e => setFD(e.target.value) }, h('option', { value: '' }, 'Direction'), ['Long','Short'].map(d => h('option', { key: d, value: d }, d))),
+        h('select', { className: 'select-field filter-select', style: { width: 130 }, value: filterSession, onChange: e => setFS(e.target.value) }, h('option', { value: '' }, 'All Sessions'), SESSIONS.map(s => h('option', { key: s, value: s }, s))),
+        h('select', { className: 'select-field filter-select', style: { width: 120 }, value: filterSetup,   onChange: e => setFSt(e.target.value) }, h('option', { value: '' }, 'All Setups'),   uniqueSetups.map(s => h('option', { key: s, value: s }, s))),
+        h('select', { className: 'select-field filter-select', style: { width: 100 }, value: filterDir,     onChange: e => setFD(e.target.value) }, h('option', { value: '' }, 'Direction'), ['Long','Short'].map(d => h('option', { key: d, value: d }, d))),
         (filterSession||filterSetup||filterDir) && h('button', { className: 'btn btn-ghost btn-sm', onClick: () => { setFS(''); setFSt(''); setFD(''); } }, 'Clear')
       )
     ),
@@ -464,7 +459,7 @@ function AnalyticsPage() {
                   { l: 'Win Rate',      v: Calc.fmt.pct(m.winRate) },
                   { l: 'Avg R',         v: Calc.fmt.r(m.averageR) },
                   { l: 'Total P/L',     v: Calc.fmt.currency(m.totalPL) },
-                  { l: 'Profit Factor', v: isFinite(m.profitFactor) ? m.profitFactor.toFixed(2) : '—' },
+                  { l: 'Profit Factor', v: isFinite(m.profitFactor) ? m.profitFactor.toFixed(2) : ' ' },
                 ].map((x, i) => h('div', { key: i, className: 'metric-row' },
                   h('span', { className: 'metric-name' }, x.l),
                   h('span', { className: 'metric-val', style: { color } }, x.v)

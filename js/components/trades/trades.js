@@ -12,13 +12,10 @@ function TradeDrawer({ trade, onClose, onEdit }) {
     h('div', { className: 'drawer open' },
       h('div', { className: 'drawer-header' },
         h('div', null,
-          h('div', { style: { fontSize: 14, fontWeight: 650, color: 'var(--t1)' } }, `${trade.instrument} — ${trade.direction}`),
+          h('div', { style: { fontSize: 14, fontWeight: 650, color: 'var(--t1)' } }, (trade.instrument || '') + ' | ' + (trade.direction || '')),
           h('div', { style: { fontSize: 11, color: 'var(--t3)', marginTop: 2 } }, `${trade.date} ${trade.time || ''} · ${trade.session}`)
         ),
-        h('div', { style: { display: 'flex', gap: 6 } },
-          h('button', { className: 'btn btn-secondary btn-sm', onClick: onEdit }, h(UI.Icon, { name: 'edit', size: 12 }), 'Edit'),
-          h('button', { className: 'modal-close', onClick: onClose }, h(UI.Icon, { name: 'x', size: 14 }))
-        )
+        h('button', { className: 'modal-close', onClick: onClose }, h(UI.Icon, { name: 'x', size: 14 }))
       ),
       h('div', { className: 'drawer-body' },
         // P/L header
@@ -30,18 +27,18 @@ function TradeDrawer({ trade, onClose, onEdit }) {
         // Info grid
         h('div', { className: 'info-grid', style: { marginBottom: 14 } },
           ...[
-            ['Setup',        trade.setup           || '—'],
-            ['Confirmation', trade.confirmation     || '—'],
-            ['POI',          trade.poi              || '—'],
-            ['Entry Model',  trade.entryModel       || '—'],
-            ['Entry',        trade.entryPrice       || '—'],
-            ['Exit',         trade.exitPrice        || '—'],
-            ['Stop Loss',    trade.stopLoss         || '—'],
-            ['Take Profit',  trade.takeProfit       || '—'],
+            ['Setup',        trade.setup           || ' '],
+            ['Confirmation', trade.confirmation     || ' '],
+            ['POI',          trade.poi              || ' '],
+            ['Entry Model',  trade.entryModel       || ' '],
+            ['Entry',        trade.entryPrice       || ' '],
+            ['Exit',         trade.exitPrice        || ' '],
+            ['Stop Loss',    trade.stopLoss         || ' '],
+            ['Take Profit',  trade.takeProfit       || ' '],
             ['Risk Amount',  Calc.fmt.currency(trade.riskAmount||0)],
-            ['Size',         trade.positionSize     || '—'],
-            ['HTF Bias',     trade.htfBias          || '—'],
-            ['Condition',    trade.marketCondition  || '—'],
+            ['Size',         trade.positionSize     || ' '],
+            ['HTF Bias',     trade.htfBias          || ' '],
+            ['Condition',    trade.marketCondition  || ' '],
           ].map(([label, val]) =>
             h('div', { key: label, className: 'info-item' },
               h('div', { className: 'info-label' }, label),
@@ -56,12 +53,12 @@ function TradeDrawer({ trade, onClose, onEdit }) {
             ['emotionBefore','emotionDuring','emotionAfter'].map((k, i) =>
               h('div', { key: k },
                 h('div', { style: { fontSize: 9.5, color: 'var(--t4)', marginBottom: 3 } }, ['Before','During','After'][i]),
-                h('span', { className: 'badge badge-gray' }, trade[k] || '—')
+                h('span', { className: 'badge badge-gray' }, trade[k] || ' ')
               )
             )
           ),
           h('div', { style: { fontSize: 12, color: 'var(--t2)' } },
-            'Execution: ', h('span', { style: { fontWeight: 600, color: 'var(--t1)' } }, `${trade.executionQuality || '—'}/10`),
+            'Execution: ', h('span', { style: { fontWeight: 600, color: 'var(--t1)' } }, `${trade.executionQuality || ' '}/10`),
             ' · Rule Followed: ', h('span', { style: { color: trade.ruleFollowed ? 'var(--green)' : 'var(--red)' } }, trade.ruleFollowed ? 'Yes' : 'No')
           )
         ),
@@ -171,19 +168,19 @@ function TradesPage() {
       // Filters
       h('div', { style: { display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap', alignItems: 'center' } },
         h(UI.SearchInput, { value: search, onChange: setSearch }),
-        h('select', { className: 'select-field', style: { width: 150 }, value: filterAcc, onChange: e => setFilterAcc(e.target.value) },
+        h('select', { className: 'select-field filter-select', style: { width: 150 }, value: filterAcc, onChange: e => setFilterAcc(e.target.value) },
           h('option', { value: '' }, 'All Accounts'),
           accounts.map(a => h('option', { key: a.id, value: a.id }, a.name.substring(0, 22)))
         ),
-        h('select', { className: 'select-field', style: { width: 130 }, value: filterSetup, onChange: e => setFilterSetup(e.target.value) },
+        h('select', { className: 'select-field filter-select', style: { width: 130 }, value: filterSetup, onChange: e => setFilterSetup(e.target.value) },
           h('option', { value: '' }, 'All Setups'),
           uniqueSetups.map(s => h('option', { key: s, value: s }, s))
         ),
-        h('select', { className: 'select-field', style: { width: 100 }, value: filterDir, onChange: e => setFilterDir(e.target.value) },
+        h('select', { className: 'select-field filter-select', style: { width: 100 }, value: filterDir, onChange: e => setFilterDir(e.target.value) },
           h('option', { value: '' }, 'Direction'),
           ['Long','Short'].map(d => h('option', { key: d, value: d }, d))
         ),
-        h('select', { className: 'select-field', style: { width: 90 }, value: filterGrade, onChange: e => setFilterGrade(e.target.value) },
+        h('select', { className: 'select-field filter-select', style: { width: 90 }, value: filterGrade, onChange: e => setFilterGrade(e.target.value) },
           h('option', { value: '' }, 'Grade'),
           GRADES.map(g => h('option', { key: g, value: g }, g))
         ),
@@ -224,21 +221,16 @@ function TradesPage() {
                   h('td', null, h('span', { style: { color: 'var(--t2)', fontFamily: 'inherit', fontSize: 12 } }, t.date)),
                   h('td', { className: 'text-col' }, t.instrument),
                   h('td', null, h(UI.DirBadge, { dir: t.direction })),
-                  h('td', null, t.setup ? h('span', { className: 'badge badge-blue' }, t.setup) : h('span', { style: { color: 'var(--t4)' } }, '—')),
-                  h('td', null, h('span', { style: { color: 'var(--t3)', fontFamily: 'inherit', fontSize: 11 } }, t.session || '—')),
-                  h('td', null, t.entryPrice || '—'),
-                  h('td', null, t.exitPrice  || '—'),
-                  h('td', null, t.riskAmount ? Calc.fmt.currency(t.riskAmount) : '—'),
+                  h('td', null, t.setup ? h('span', { className: 'badge badge-blue' }, t.setup) : h('span', { style: { color: 'var(--t4)' } }, ' ')),
+                  h('td', null, h('span', { style: { color: 'var(--t3)', fontFamily: 'inherit', fontSize: 11 } }, t.session || ' ')),
+                  h('td', null, t.entryPrice || ' '),
+                  h('td', null, t.exitPrice  || ' '),
+                  h('td', null, t.riskAmount ? Calc.fmt.currency(t.riskAmount) : ' '),
                   h('td', null, h(UI.PLText, { value: t.profitLoss, size: 'sm' })),
                   h('td', null, h(UI.RText,  { value: t.rMultiple })),
                   h('td', null, h(UI.GradeBadge, { grade: t.tradeGrade })),
-                  h('td', null, t.mistake ? h('span', { className: 'badge badge-red', style: { maxWidth: 100, overflow: 'hidden', textOverflow: 'ellipsis' } }, t.mistake) : h('span', { style: { color: 'var(--t4)', fontSize: 10 } }, '—')),
-                  h('td', { onClick: e => e.stopPropagation() },
-                    h('div', { style: { display: 'flex', gap: 4 } },
-                      h('button', { className: 'btn btn-secondary btn-icon sm', title: 'Edit', onClick: e => { e.stopPropagation(); setEditTrade(t); setShowForm(true); } }, h(UI.Icon, { name: 'edit',  size: 12 })),
-                      h('button', { className: 'btn btn-danger  btn-icon sm', title: 'Delete', onClick: e => { e.stopPropagation(); setConfirmDel(t.id); } },  h(UI.Icon, { name: 'trash', size: 12 }))
-                    )
-                  )
+                  h('td', null, t.mistake ? h('span', { className: 'badge badge-red', style: { maxWidth: 100, overflow: 'hidden', textOverflow: 'ellipsis' } }, t.mistake) : h('span', { style: { color: 'var(--t4)', fontSize: 10 } }, ' ')),
+    
                 ))
               )
             ),

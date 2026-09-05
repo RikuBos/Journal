@@ -62,7 +62,7 @@ function DashboardPage() {
     h('div', { className: 'page-header' },
       h('div', null,
         h('div', { className: 'page-title' }, 'Dashboard'),
-        h('div', { className: 'page-subtitle' }, activeAccount.propFirm + '  —  ' + activeAccount.name + '  —  ' + activeAccount.phase)
+        h('div', { className: 'page-subtitle' }, activeAccount.propFirm + '   ' + activeAccount.name + '   ' + activeAccount.phase)
       ),
       h('div', { style: { display: 'flex', gap: 8, alignItems: 'center' } },
         h('span', { className: `badge ${activeAccount.status === 'Active' ? 'badge-green' : activeAccount.status === 'Passed' ? 'badge-blue' : 'badge-red'}` }, activeAccount.status)
@@ -200,12 +200,12 @@ function DashboardPage() {
         h('div', { className: 'glass-card' },
           h('div', { className: 'card-header' }, h('span', { className: 'card-title' }, 'Streaks & Compliance')),
           h('div', { className: 'card-body', style: { padding: '4px 16px' } },
-            h(MetricRow, { label: 'Current Streak', value: streak.current ? (streak.current + ' ' + (streak.type === 'win' ? 'W' : 'L')) : '—', cls: streak.type === 'win' ? 'text-pos' : streak.type === 'loss' ? 'text-neg' : '' }),
+            h(MetricRow, { label: 'Current Streak', value: streak.current ? (streak.current + ' ' + (streak.type === 'win' ? 'W' : 'L')) : ' ', cls: streak.type === 'win' ? 'text-pos' : streak.type === 'loss' ? 'text-neg' : '' }),
             h(MetricRow, { label: 'Best Streak',    value: `${streak.best} W`, cls: 'text-pos' }),
             h(MetricRow, { label: 'Worst Streak',   value: `${streak.worst} L`, cls: 'text-neg' }),
             h(MetricRow, { label: 'Trading Days',   value: [...new Set(accountTrades.map(t => t.date))].length }),
             h(MetricRow, { label: 'Rule Compliance', value: Calc.fmt.pct(ruleComply), cls: ruleComply >= 80 ? 'text-pos' : ruleComply >= 60 ? '' : 'text-neg' }),
-            h(MetricRow, { label: 'Avg Execution',  value: metrics.totalTrades ? (accountTrades.filter(t => t.status === 'Closed').reduce((s, t) => s + (t.executionQuality || 0), 0) / metrics.totalTrades).toFixed(1) + '/10' : '—' }),
+            h(MetricRow, { label: 'Avg Execution',  value: metrics.totalTrades ? (accountTrades.filter(t => t.status === 'Closed').reduce((s, t) => s + (t.executionQuality || 0), 0) / metrics.totalTrades).toFixed(1) + '/10' : ' ' }),
           )
         )
       ),
