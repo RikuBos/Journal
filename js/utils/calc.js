@@ -6,7 +6,7 @@
 // Futures: per contract. Forex: per standard lot (100,000 units). Crypto: varies.
 var POINT_VALUES = {
   // US Equity Futures (CME)
-  'NQ':   20,      // Nasdaq-100 E-mini: $20 per point
+  'NQ':   10,      // Nasdaq-100 E-mini: $20 per point
   'MNQ':   2,      // Micro Nasdaq-100: $2 per point
   'ES':   50,      // S&P 500 E-mini: $50 per point
   'MES':   5,      // Micro S&P 500: $5 per point
