@@ -89,11 +89,11 @@ function AccountsPage() {
               const isActive = acc.id === activeAccountId;
               return h('div', { key: acc.id,
               className: 'account-card' + (isActive ? ' is-active' : ''),
-              onDoubleClick: e => {
+              onContextMenu: function(e) { e.preventDefault();
                 UI.showContextMenu(e, [
-                  { label: 'Edit Account',   icon: 'edit',    action: () => { setEditAcc(acc); setShowForm(true); } },
-                  { label: 'Set as Active',  icon: 'target',  action: () => { switchAccount(acc.id); UI.toast('Account switched', 'success'); } },
-                  { label: 'Delete Account', icon: 'trash',   danger: true, action: () => setConfirmDel(acc.id) },
+                  { label: 'Edit Account',   icon: 'edit',    action: function() { setEditAcc(acc); setShowForm(true); } },
+                  { label: 'Set as Active',  icon: 'target',  action: function() { switchAccount(acc.id); UI.toast('Account switched', 'success'); } },
+                  { label: 'Delete Account', icon: 'trash',   danger: true, action: function() { setConfirmDel(acc.id); } },
                 ]);
               },
             },
@@ -354,9 +354,18 @@ function AnalyticsPage() {
     h('div', { className: 'page-header' },
       h('div', null, h('div', { className: 'page-title' }, 'Analytics'), h('div', { className: 'page-subtitle' }, `${filtered.length} trades analyzed`)),
       h('div', { style: { display: 'flex', gap: 8, flexWrap: 'wrap' } },
-        h('select', { className: 'select-field filter-select', style: { width: 130 }, value: filterSession, onChange: e => setFS(e.target.value) }, h('option', { value: '' }, 'All Sessions'), SESSIONS.map(s => h('option', { key: s, value: s }, s))),
-        h('select', { className: 'select-field filter-select', style: { width: 120 }, value: filterSetup,   onChange: e => setFSt(e.target.value) }, h('option', { value: '' }, 'All Setups'),   uniqueSetups.map(s => h('option', { key: s, value: s }, s))),
-        h('select', { className: 'select-field filter-select', style: { width: 100 }, value: filterDir,     onChange: e => setFD(e.target.value) }, h('option', { value: '' }, 'Direction'), ['Long','Short'].map(d => h('option', { key: d, value: d }, d))),
+        h(UI.CustomDropdown, {
+          value: filterSession, onChange: function(v) { setFS(v); }, placeholder: 'All Sessions',
+          options: [{ value: '', label: 'All Sessions' }].concat(SESSIONS.map(function(s) { return { value: s, label: s }; })),
+        }),
+        h(UI.CustomDropdown, {
+          value: filterSetup, onChange: function(v) { setFSt(v); }, placeholder: 'All Setups',
+          options: [{ value: '', label: 'All Setups' }].concat(uniqueSetups.map(function(s) { return { value: s, label: s }; })),
+        }),
+        h(UI.CustomDropdown, {
+          value: filterDir, onChange: function(v) { setFD(v); }, placeholder: 'Direction',
+          options: [{ value: '', label: 'Direction' }, { value: 'Long', label: 'Long' }, { value: 'Short', label: 'Short' }],
+        }),
         (filterSession||filterSetup||filterDir) && h('button', { className: 'btn btn-ghost btn-sm', onClick: () => { setFS(''); setFSt(''); setFD(''); } }, 'Clear')
       )
     ),

@@ -6,7 +6,7 @@
 // Futures: per contract. Forex: per standard lot (100,000 units). Crypto: varies.
 var POINT_VALUES = {
   // US Equity Futures (CME)
-  'NQ':   10,      // Nasdaq-100 E-mini: $20 per point
+  'NQ':   20,      // Nasdaq-100 E-mini: $20 per point
   'MNQ':   2,      // Micro Nasdaq-100: $2 per point
   'ES':   50,      // S&P 500 E-mini: $50 per point
   'MES':   5,      // Micro S&P 500: $5 per point
@@ -182,6 +182,52 @@ var Calc = {
       largestWin:    wins.length   ? +Math.max(...wins.map(t => t.profitLoss)).toFixed(2) : 0,
       largestLoss:   losses.length ? +Math.min(...losses.map(t => t.profitLoss)).toFixed(2) : 0,
     };
+  },
+
+
+  // Auto-calculate execution quality score (1-10)
+  // Based on: RR capture, rule compliance, mistake presence, news risk
+  executionQuality(trade) {
+    var score = 10;
+
+    // Rule violated: -2.5
+    if (!trade.ruleFollowed) score -= 2.5;
+
+    // Mistake present: -1.5 per severity
+    if (trade.mistake) {
+      var sev = trade.mistakeSeverity;
+      if (sev === 'Critical') score -= 3;
+      else if (sev === 'Major')    score -= 2;
+      else if (sev === 'Moderate') score -= 1.5;
+      else                          score -= 1;
+    }
+
+    // RR capture ratio: how much of planned RR was captured
+    // If closed trade: actual RR vs planned RR
+    if (trade.status === 'Closed' && trade.entryPrice && trade.stopLoss && trade.takeProfit && trade.exitPrice) {
+      var plannedRR = Math.abs(+trade.takeProfit - +trade.entryPrice) /
+                     Math.abs(+trade.entryPrice - +trade.stopLoss);
+      var actualRR  = trade.rMultiple || 0;
+      if (plannedRR > 0) {
+        var capture = actualRR / plannedRR;
+        // Full TP hit or beyond: no penalty
+        // Partial (50-99%): -0.5
+        // Very partial (<50%): -1.5
+        // Loss when plan said win: -2
+        if (capture < 0)    score -= 2;
+        else if (capture < 0.5) score -= 1.5;
+        else if (capture < 1.0) score -= 0.5;
+      }
+    }
+
+    // Traded during news: -1
+    if (trade.newsRisk) score -= 1;
+
+    // No setup or confirmation filled: -0.5 each
+    if (!trade.setup)        score -= 0.5;
+    if (!trade.confirmation) score -= 0.5;
+
+    return Math.max(1, Math.min(10, Math.round(score * 10) / 10));
   },
 
   ruleCompliance(trades) {

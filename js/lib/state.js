@@ -87,6 +87,8 @@ function AppProvider({ children }) {
         item.rMultiple = +(item.profitLoss / item.riskAmount).toFixed(2);
       item.status = 'Closed';
     }
+    // Auto-calculate execution quality (always recalculate on save)
+    item.executionQuality = Calc.executionQuality(item);
     await DB.put(STORES.trades, item);
     setTrades(p => [...p.filter(t => t.id !== item.id), item]);
     // Discord notification (fire-and-forget, non-blocking)

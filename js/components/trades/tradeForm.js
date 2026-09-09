@@ -256,8 +256,17 @@ function TradeForm({ trade, onSave, onClose }) {
 
     review: h('div', null,
       h('div', { className: 'form-row' },
-        selField('Trade Grade',      'tradeGrade',      GRADES,     null),
-        h('div', { className: 'input-group' }, h('label', { className: 'input-label' }, 'Execution (1-10)'), h('input', { className: 'input-field', type: 'number', min: 1, max: 10, value: f.executionQuality, onChange: e => set('executionQuality', +e.target.value) })),
+        selField('Trade Grade', 'tradeGrade', GRADES, null),
+        h('div', { className: 'input-group' },
+          h('label', { className: 'input-label' }, 'Execution Quality'),
+          h('div', { style: { background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-1)', borderRadius: 'var(--r2)', padding: '8px 13px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' } },
+            h('span', { style: { fontSize: 12, color: 'var(--t3)' } }, 'Auto-calculated on save'),
+            h('span', { style: { fontSize: 15, fontWeight: 700, fontFamily: 'var(--mono)', color: (() => { var s = f.executionQuality || 0; return s >= 8 ? 'var(--green)' : s >= 5 ? 'var(--accent)' : 'var(--red)'; })() } },
+              (f.executionQuality || '—') + (f.executionQuality ? '/10' : '')
+            )
+          ),
+          h('div', { className: 'input-hint' }, 'Based on rule compliance, mistakes, RR capture, and setup quality')
+        ),
         selField('Emotion Before',   'emotionBefore',   EMOTIONS,   null),
         selField('Emotion During',   'emotionDuring',   EMOTIONS,   null),
         selField('Emotion After',    'emotionAfter',    EMOTIONS,   null),

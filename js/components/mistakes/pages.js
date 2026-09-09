@@ -154,7 +154,7 @@ function PlaybookPage() {
               key: s.id, className: 'glass-card',
               style: { cursor: 'pointer', border: selected && selected.id === s.id ? '1px solid var(--accent)' : undefined },
               onClick: function() { setSelected(selected && selected.id === s.id ? null : s); },
-              onDoubleClick: function(e) {
+              onContextMenu: function(e) { e.preventDefault();
                 UI.showContextMenu(e, [
                   { label: 'Edit Setup',   icon: 'edit',  action: function() { setEditSetup(s); setShowForm(true); } },
                   { label: 'Delete Setup', icon: 'trash', danger: true, action: function() { setConfirmDel(s.id); } },

@@ -244,9 +244,53 @@ function showContextMenu(e, items) {
   }
 }
 
+
+// ── CUSTOM DROPDOWN ────────────────────────────────────────
+function CustomDropdown({ value, onChange, options, placeholder }) {
+  var [open, setOpen] = React.useState(false);
+  var ref = React.useRef(null);
+
+  React.useEffect(function() {
+    function handler(e) {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+    }
+    document.addEventListener('mousedown', handler);
+    return function() { document.removeEventListener('mousedown', handler); };
+  }, []);
+
+  var selected = options.find(function(o) {
+    return (o.value !== undefined ? o.value : o) === value;
+  });
+  var label = selected
+    ? (selected.label || selected)
+    : (placeholder || 'Select');
+
+  return h('div', { className: 'custom-dropdown', ref: ref },
+    h('div', {
+      className: 'custom-dropdown-trigger' + (open ? ' open' : ''),
+      onClick: function() { setOpen(function(o) { return !o; }); },
+    },
+      h('span', null, label),
+      h('div', { className: 'custom-dropdown-arrow' })
+    ),
+    open && h('div', { className: 'custom-dropdown-menu' },
+      options.map(function(opt, i) {
+        var optVal   = opt.value !== undefined ? opt.value : opt;
+        var optLabel = opt.label || opt;
+        var isSel    = optVal === value;
+        return h('div', {
+          key: i,
+          className: 'custom-dropdown-item' + (isSel ? ' selected' : ''),
+          onClick: function() { onChange(optVal); setOpen(false); },
+        }, optLabel);
+      })
+    )
+  );
+}
+
 window.UI = {
   Icon, Modal, ConfirmModal, GradeBadge, DirBadge,
   PLText, RText, SearchInput, EmptyState, StatBlock,
   MetricRow, ChartTooltip, Lightbox, ToastProvider, toast,
-  ContextMenuProvider, showContextMenu,
+  ContextMenuProvider, showContextMenu, CustomDropdown,
 };

@@ -168,22 +168,30 @@ function TradesPage() {
       // Filters
       h('div', { style: { display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap', alignItems: 'center' } },
         h(UI.SearchInput, { value: search, onChange: setSearch }),
-        h('select', { className: 'select-field filter-select', style: { width: 150 }, value: filterAcc, onChange: e => setFilterAcc(e.target.value) },
-          h('option', { value: '' }, 'All Accounts'),
-          accounts.map(a => h('option', { key: a.id, value: a.id }, a.name.substring(0, 22)))
-        ),
-        h('select', { className: 'select-field filter-select', style: { width: 130 }, value: filterSetup, onChange: e => setFilterSetup(e.target.value) },
-          h('option', { value: '' }, 'All Setups'),
-          uniqueSetups.map(s => h('option', { key: s, value: s }, s))
-        ),
-        h('select', { className: 'select-field filter-select', style: { width: 100 }, value: filterDir, onChange: e => setFilterDir(e.target.value) },
-          h('option', { value: '' }, 'Direction'),
-          ['Long','Short'].map(d => h('option', { key: d, value: d }, d))
-        ),
-        h('select', { className: 'select-field filter-select', style: { width: 90 }, value: filterGrade, onChange: e => setFilterGrade(e.target.value) },
-          h('option', { value: '' }, 'Grade'),
-          GRADES.map(g => h('option', { key: g, value: g }, g))
-        ),
+        h(UI.CustomDropdown, {
+          value: filterAcc,
+          onChange: function(v) { setFilterAcc(v); },
+          placeholder: 'All Accounts',
+          options: [{ value: '', label: 'All Accounts' }].concat(accounts.map(function(a) { return { value: a.id, label: a.name.substring(0,22) }; })),
+        }),
+        h(UI.CustomDropdown, {
+          value: filterSetup,
+          onChange: function(v) { setFilterSetup(v); },
+          placeholder: 'All Setups',
+          options: [{ value: '', label: 'All Setups' }].concat(uniqueSetups.map(function(s) { return { value: s, label: s }; })),
+        }),
+        h(UI.CustomDropdown, {
+          value: filterDir,
+          onChange: function(v) { setFilterDir(v); },
+          placeholder: 'Direction',
+          options: [{ value: '', label: 'Direction' }, { value: 'Long', label: 'Long' }, { value: 'Short', label: 'Short' }],
+        }),
+        h(UI.CustomDropdown, {
+          value: filterGrade,
+          onChange: function(v) { setFilterGrade(v); },
+          placeholder: 'Grade',
+          options: [{ value: '', label: 'Grade' }].concat(GRADES.map(function(g) { return { value: g, label: g }; })),
+        }),
         hasFilter && h('button', { className: 'btn btn-ghost btn-sm', onClick: () => { setSearch(''); setFilterSetup(''); setFilterDir(''); setFilterGrade(''); } }, 'Clear filters')
       ),
 
@@ -209,7 +217,8 @@ function TradesPage() {
                 paged.map(t => h('tr', { key: t.id,
                 className: 'row-editable',
                 onClick: () => setSelected(t),
-                onDoubleClick: e => {
+                onContextMenu: function(e) {
+                  e.preventDefault();
                   UI.showContextMenu(e, [
                     { label: 'Edit Trade', icon: 'edit', action: () => { setEditTrade(t); setShowForm(true); setSelected(null); } },
                     { label: 'View Details', icon: 'eye', action: () => { setSelected(t); } },
