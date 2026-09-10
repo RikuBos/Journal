@@ -144,10 +144,14 @@ function TradeForm({ trade, onSave, onClose }) {
   const selField = (label, key, options, placeholder) =>
     h('div', { className: 'input-group' },
       h('label', { className: 'input-label' }, label),
-      h('select', { className: 'select-field', value: f[key], onChange: e => set(key, e.target.value) },
-        placeholder && h('option', { value: '' }, placeholder),
-        options.map(o => h('option', { key: o, value: o }, o))
-      )
+      h(UI.CustomDropdown, {
+        value: f[key] || '',
+        onChange: function(v) { set(key, v); },
+        options: (placeholder ? [{ value: '', label: placeholder }] : []).concat(
+          options.map(function(o) { return { value: o, label: o }; })
+        ),
+        placeholder: placeholder || 'Select...',
+      })
     );
 
   const txtField = (label, key, placeholder) =>
@@ -175,20 +179,26 @@ function TradeForm({ trade, onSave, onClose }) {
         h('div', { className: 'input-group' }, h('label', { className: 'input-label' }, 'Time'), h('input', { type: 'time', className: 'input-field', value: f.time, onChange: e => set('time', e.target.value) })),
         h('div', { className: 'input-group' },
           h('label', { className: 'input-label' }, 'Account'),
-          h('select', { className: 'select-field', value: f.accountId, onChange: e => set('accountId', e.target.value) },
-            accounts.map(a => h('option', { key: a.id, value: a.id }, a.name))
-          )
+          h(UI.CustomDropdown, {
+            value: f.accountId || '',
+            onChange: function(v) { set('accountId', v); },
+            options: accounts.map(function(a) { return { value: a.id, label: a.name }; }),
+            placeholder: 'Select Account',
+          })
         ),
         h('div', { className: 'input-group' },
           h('label', { className: 'input-label' },
             'Instrument',
             f.instrument && h('span', { style: { color: 'var(--t3)', fontWeight: 400, marginLeft: 6 } },
-              '— ' + Calc.fmt.currency(getPointValue(f.instrument)) + '/pt'
+              '  ' + Calc.fmt.currency(getPointValue(f.instrument)) + '/pt'
             )
           ),
-          h('select', { className: 'select-field', value: f.instrument, onChange: e => set('instrument', e.target.value) },
-            INSTRUMENTS.map(i => h('option', { key: i, value: i }, i))
-          )
+          h(UI.CustomDropdown, {
+            value: f.instrument || '',
+            onChange: function(v) { set('instrument', v); },
+            options: INSTRUMENTS.map(function(i) { return { value: i, label: i }; }),
+            placeholder: 'Select Instrument',
+          })
         ),
         h('div', { className: 'input-group' },
           h('label', { className: 'input-label' }, 'Direction'),
@@ -198,9 +208,11 @@ function TradeForm({ trade, onSave, onClose }) {
         ),
         h('div', { className: 'input-group' },
           h('label', { className: 'input-label' }, 'Status'),
-          h('select', { className: 'select-field', value: f.status, onChange: e => set('status', e.target.value) },
-            ['Open','Closed','Cancelled'].map(s => h('option', { key: s, value: s }, s))
-          )
+          h(UI.CustomDropdown, {
+            value: f.status || 'Open',
+            onChange: function(v) { set('status', v); },
+            options: ['Open','Closed','Cancelled'].map(function(s) { return { value: s, label: s }; }),
+          })
         ),
         selField('Session',   'session',   SESSIONS,   null),
         selField('Timeframe', 'timeframe', TIMEFRAMES, null),
@@ -226,9 +238,9 @@ function TradeForm({ trade, onSave, onClose }) {
 
     setup: h('div', null,
       h('div', { className: 'form-row' },
-        h('div', { className: 'input-group' }, h('label', { className: 'input-label' }, 'Setup'), h('select', { className: 'select-field', value: f.setup, onChange: e => set('setup', e.target.value) }, h('option', { value: '' }, '— Select Setup —'), allSetups.map(s => h('option', { key: s, value: s }, s)))),
-        h('div', { className: 'input-group' }, h('label', { className: 'input-label' }, 'Confirmation'), h('select', { className: 'select-field', value: f.confirmation, onChange: e => set('confirmation', e.target.value) }, h('option', { value: '' }, '— Select Confirmation —'), allConfs.map(c => h('option', { key: c, value: c }, c)))),
-        h('div', { className: 'input-group' }, h('label', { className: 'input-label' }, 'POI'), h('select', { className: 'select-field', value: f.poi, onChange: e => set('poi', e.target.value) }, h('option', { value: '' }, '— Select POI —'), allPOIs.map(p => h('option', { key: p, value: p }, p)))),
+        h('div', { className: 'input-group' }, h('label', { className: 'input-label' }, 'Setup'), h(UI.CustomDropdown, { value: f.setup || '', onChange: function(v) { set('setup', v); }, options: [{ value: '', label: 'Select Setup' }].concat(allSetups.map(function(s) { return { value: s, label: s }; })) })),
+        h('div', { className: 'input-group' }, h('label', { className: 'input-label' }, 'Confirmation'), h(UI.CustomDropdown, { value: f.confirmation || '', onChange: function(v) { set('confirmation', v); }, options: [{ value: '', label: 'Select Confirmation' }].concat(allConfs.map(function(c) { return { value: c, label: c }; })) })),
+        h('div', { className: 'input-group' }, h('label', { className: 'input-label' }, 'POI'), h(UI.CustomDropdown, { value: f.poi || '', onChange: function(v) { set('poi', v); }, options: [{ value: '', label: 'Select POI' }].concat(allPOIs.map(function(p) { return { value: p, label: p }; })) })),
         selField('Market Condition', 'marketCondition', MARKET_CONDITIONS, null),
         txtField('Entry Model', 'entryModel', 'e.g. ICT Judas Swing'),
         txtField('Liquidity',   'liquidity',  'e.g. Buy Side Liquidity'),

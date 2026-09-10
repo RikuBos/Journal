@@ -443,7 +443,7 @@ function JournalPage() {
     return h('div', null,
       h('div', { className: 'form-row' },
         h('div', { className: 'input-group' }, h('label', { className: 'input-label' }, 'Market Bias'), h('input', { className: 'input-field', placeholder: 'Bullish / Bearish / Ranging', value: f.marketBias, onChange: e => set('marketBias', e.target.value) })),
-        h('div', { className: 'input-group' }, h('label', { className: 'input-label' }, 'Emotional State'), h('select', { className: 'select-field', value: f.emotionalState, onChange: e => set('emotionalState', e.target.value) }, EMOTIONS.map(em => h('option', { key: em, value: em }, em)))),
+        h('div', { className: 'input-group' }, h('label', { className: 'input-label' }, 'Emotional State'), h(UI.CustomDropdown, { value: f.emotionalState||'', onChange: function(v){set('emotionalState',v);}, options: EMOTIONS.map(function(em){return{value:em,label:em};}), placeholder:'Select Emotion' })),
       ),
       ta('Trading Plan',         'plan',                 'What is the plan? What setups are you looking for?'),
       ta('Important Levels',     'importantLevels',      'Key price levels, POIs, liquidity zones'),
@@ -623,10 +623,10 @@ function SettingsPage() {
         h('div', { className: 'glass-card' },
           h('div', { className: 'card-header' }, h('span', { className: 'card-title' }, 'Preferences')),
           h('div', { className: 'card-body' },
-            h('div', { className: 'input-group' }, h('label', { className: 'input-label' }, 'Currency'), h('select', { className: 'select-field', value: f.currency, onChange: e => set('currency', e.target.value) }, CURRENCIES.map(c => h('option', { key: c, value: c }, c)))),
-            h('div', { className: 'input-group' }, h('label', { className: 'input-label' }, 'Timezone'), h('select', { className: 'select-field', value: f.timezone, onChange: e => set('timezone', e.target.value) }, ['America/New_York','America/Chicago','Europe/London','Europe/Zurich','Asia/Tokyo','Asia/Singapore','Australia/Sydney'].map(tz => h('option', { key: tz, value: tz }, tz)))),
+            h('div', { className: 'input-group' }, h('label', { className: 'input-label' }, 'Currency'), h(UI.CustomDropdown, { value: f.currency||'USD', onChange: function(v){set('currency',v);}, options: CURRENCIES.map(function(c){return{value:c,label:c};}) })),
+            h('div', { className: 'input-group' }, h('label', { className: 'input-label' }, 'Timezone'), h(UI.CustomDropdown, { value: f.timezone||'America/New_York', onChange: function(v){set('timezone',v);}, options: ['America/New_York','America/Chicago','Europe/London','Europe/Zurich','Asia/Tokyo','Asia/Singapore','Australia/Sydney'].map(function(tz){return{value:tz,label:tz};}) })),
             h('div', { className: 'input-group' }, h('label', { className: 'input-label' }, 'Default Risk %'), h('input', { className: 'input-field', type: 'number', step: 0.1, value: f.defaultRisk, onChange: e => set('defaultRisk', +e.target.value) })),
-            h('div', { className: 'input-group' }, h('label', { className: 'input-label' }, 'Default Instrument'), h('select', { className: 'select-field', value: f.defaultInstrument, onChange: e => set('defaultInstrument', e.target.value) }, INSTRUMENTS.map(i => h('option', { key: i, value: i }, i))))
+            h('div', { className: 'input-group' }, h('label', { className: 'input-label' }, 'Default Instrument'), h(UI.CustomDropdown, { value: f.defaultInstrument||'NQ', onChange: function(v){set('defaultInstrument',v);}, options: INSTRUMENTS.map(function(i){return{value:i,label:i};}) }))
           )
         ),
         h('div', { className: 'glass-card' },

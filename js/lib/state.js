@@ -47,6 +47,16 @@ function AppProvider({ children }) {
       setActiveId(active ? active.id : null);
     } catch (e) { console.error('loadAll:', e); }
     setLoading(false);
+
+    // Check if scheduled Discord report is due (Saturday=weekly, 1st=monthly)
+    try {
+      var allT = await DB.getAll(STORES.trades);
+      var allA = await DB.getAll(STORES.accounts);
+      var sett = await DB.get(STORES.settings, 'settings') || {};
+      if (window.DiscordScheduler) {
+        await window.DiscordScheduler.checkScheduledReports(allT, allA, sett);
+      }
+    } catch(e) { /* silent */ }
   }, []);
 
   useEffect(() => { loadAll(); }, [loadAll]);

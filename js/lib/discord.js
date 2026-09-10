@@ -318,3 +318,124 @@ var DiscordWebhook = (function () {
 })();
 
 window.DiscordWebhook = DiscordWebhook;
+
+// ── WEEKLY & MONTHLY REPORT SCHEDULER ─────────────────────
+// Called on app load — checks if a weekly (Saturday 00:00) or
+// monthly (1st of month 00:00) report is due and sends it.
+
+var SCHED_KEYS = { weekly: 'lastWeeklyReport', monthly: 'lastMonthlyReport' };
+
+function formatReportDate(d) {
+  return d.toISOString().slice(0,10);
+}
+
+async function buildReportStats(trades, accounts, period) {
+  // period = { start: Date, end: Date }
+  var periodTrades = trades.filter(function(t) {
+    var d = new Date(t.date || t.createdAt);
+    return t.status === 'Closed' && d >= period.start && d < period.end;
+  });
+
+  var wins   = periodTrades.filter(function(t) { return (t.profitLoss||0) > 0; });
+  var losses = periodTrades.filter(function(t) { return (t.profitLoss||0) <= 0; });
+  var total  = periodTrades.length;
+  var wr     = total > 0 ? ((wins.length / total) * 100).toFixed(1) : '0.0';
+  var totalPL = periodTrades.reduce(function(s,t) { return s + (t.profitLoss||0); }, 0);
+  var avgRR  = total > 0
+    ? (periodTrades.reduce(function(s,t) { return s + (t.rMultiple||0); }, 0) / total).toFixed(2)
+    : '0.00';
+  var avgEQ  = total > 0
+    ? (periodTrades.reduce(function(s,t) { return s + (t.executionQuality||0); }, 0) / total).toFixed(1)
+    : '—';
+
+  // Balance change: compare active account balance at start vs now
+  var activeAcc = accounts.find(function(a) { return a.isActive; }) || accounts[0];
+  var startBal  = activeAcc ? (activeAcc.startingBalance || 0) : 0;
+  var currentBal = activeAcc ? (activeAcc.startingBalance + totalPL) : 0;
+  var balChange  = totalPL;
+  var balChangePct = startBal > 0 ? ((balChange / startBal) * 100).toFixed(2) : '0.00';
+
+  return {
+    total, wins: wins.length, losses: losses.length,
+    wr, totalPL, avgRR, avgEQ,
+    balChange, balChangePct,
+    period: formatReportDate(period.start) + ' to ' + formatReportDate(new Date(period.end - 1)),
+    accountName: activeAcc ? activeAcc.name : 'Account',
+  };
+}
+
+async function sendScheduledReport(type, trades, accounts, settings) {
+  if (!settings.discordEnabled || !settings.discordWebhookUrl) return;
+
+  var now   = new Date();
+  var start, label;
+
+  if (type === 'weekly') {
+    // Last 7 days
+    start = new Date(now); start.setDate(now.getDate() - 7); start.setHours(0,0,0,0);
+    label = 'Weekly Report';
+  } else {
+    // Last calendar month
+    start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    label = 'Monthly Report';
+  }
+  var end = new Date(now); end.setHours(0,0,0,0);
+
+  var stats = await buildReportStats(trades, accounts, { start: start, end: end });
+
+  var sign = function(v) { return v >= 0 ? '+' : ''; };
+  var body = [
+    label + ' — ' + stats.accountName,
+    'Period: ' + stats.period,
+    '',
+    'Total Trades:       ' + stats.total,
+    'Win Rate:           ' + stats.wr + '%  (' + stats.wins + 'W / ' + stats.losses + 'L)',
+    'Avg R:R:            ' + stats.avgRR + 'R',
+    'Avg Execution:      ' + stats.avgEQ + '/10',
+    'Total P/L:          ' + sign(stats.totalPL) + '$' + Math.abs(stats.totalPL).toFixed(2),
+    'Balance Change:     ' + sign(stats.balChange) + '$' + Math.abs(stats.balChange).toFixed(2) +
+                             '  (' + sign(stats.balChangePct) + stats.balChangePct + '%)',
+  ].join('
+');
+
+  var payload = { content: '```
+' + body + '
+```' };
+  if (settings.discordUsername) payload.username = settings.discordUsername;
+
+  try {
+    await fetch(settings.discordWebhookUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+  } catch(e) { /* silent */ }
+}
+
+// Check on app load whether a scheduled report is due
+async function checkScheduledReports(trades, accounts, settings) {
+  if (!settings || !settings.discordEnabled || !settings.discordWebhookUrl) return;
+
+  var now   = new Date();
+  var today = formatReportDate(now);
+
+  // Weekly: run on Saturday (day 6)
+  if (now.getDay() === 6) {
+    var lastW = localStorage.getItem(SCHED_KEYS.weekly);
+    if (lastW !== today) {
+      await sendScheduledReport('weekly', trades, accounts, settings);
+      localStorage.setItem(SCHED_KEYS.weekly, today);
+    }
+  }
+
+  // Monthly: run on 1st of month
+  if (now.getDate() === 1) {
+    var lastM = localStorage.getItem(SCHED_KEYS.monthly);
+    if (lastM !== today) {
+      await sendScheduledReport('monthly', trades, accounts, settings);
+      localStorage.setItem(SCHED_KEYS.monthly, today);
+    }
+  }
+}
+
+window.DiscordScheduler = { checkScheduledReports, sendScheduledReport };

@@ -21,14 +21,12 @@ function AccountForm({ account, onSave, onClose }) {
       fi('Prop Firm',       'propFirm'),
       fi('Account Type',    'accountType'),
       h('div', { className: 'input-group' }, h('label', { className: 'input-label' }, 'Phase'),
-        h('select', { className: 'select-field', value: f.phase, onChange: e => set('phase', e.target.value) }, PHASES.map(p => h('option', { key: p, value: p }, p)))
+        h(UI.CustomDropdown, { value: f.phase||'', onChange: function(v){set('phase',v);}, options: PHASES.map(function(p){return{value:p,label:p};}), placeholder:'Select Phase' })
       ),
       fi('Account Size',    'accountSize',  'number'),
       fi('Starting Balance','startingBalance','number'),
       h('div', { className: 'input-group' }, h('label', { className: 'input-label' }, 'Status'),
-        h('select', { className: 'select-field', value: f.status, onChange: e => set('status', e.target.value) },
-          ['Active','Passed','Failed','Archived'].map(s => h('option', { key: s, value: s }, s))
-        )
+        h(UI.CustomDropdown, { value: f.status||'Active', onChange: function(v){set('status',v);}, options: ['Active','Passed','Failed','Archived'].map(function(s){return{value:s,label:s};}) })
       ),
       fi('Start Date', 'startDate', 'date'),
     ),
