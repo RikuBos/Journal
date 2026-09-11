@@ -262,7 +262,7 @@ function CustomDropdown({ value, onChange, options, placeholder }) {
     return (o.value !== undefined ? o.value : o) === value;
   });
   var label = selected
-    ? (selected.label || selected)
+    ? (selected.label !== undefined && selected.label !== null ? selected.label : selected)
     : (placeholder || 'Select');
 
   return h('div', { className: 'custom-dropdown', ref: ref },
@@ -276,13 +276,13 @@ function CustomDropdown({ value, onChange, options, placeholder }) {
     open && h('div', { className: 'custom-dropdown-menu' },
       options.map(function(opt, i) {
         var optVal   = opt.value !== undefined ? opt.value : opt;
-        var optLabel = opt.label || opt;
+        var optLabel = (opt.label !== undefined && opt.label !== null) ? opt.label : opt;
         var isSel    = optVal === value;
         return h('div', {
           key: i,
           className: 'custom-dropdown-item' + (isSel ? ' selected' : ''),
           onClick: function() { onChange(optVal); setOpen(false); },
-        }, optLabel);
+        }, optLabel || h('span', {style:{color:'var(--t4)',fontStyle:'italic'}}, 'None'));
       })
     )
   );

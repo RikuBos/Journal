@@ -99,6 +99,22 @@ function AppProvider({ children }) {
     }
     // Auto-calculate execution quality (always recalculate on save)
     item.executionQuality = Calc.executionQuality(item);
+
+    // Auto-calculate grade based on execution quality + R-multiple
+    // Only auto-set if user hasn't manually set a grade (or always override)
+    if (item.status === 'Closed') {
+      var eq = item.executionQuality || 0;
+      var rm = item.rMultiple || 0;
+      var score = (eq / 10) * 0.6 + Math.min(Math.max(rm / 3, 0), 1) * 0.4;
+      if      (score >= 0.90) item.autoGrade = 'A+';
+      else if (score >= 0.78) item.autoGrade = 'A';
+      else if (score >= 0.62) item.autoGrade = 'B';
+      else if (score >= 0.46) item.autoGrade = 'C';
+      else if (score >= 0.30) item.autoGrade = 'D';
+      else                    item.autoGrade = 'F';
+      // Only set tradeGrade if not manually overridden
+      if (!item.tradeGradeManual) item.tradeGrade = item.autoGrade;
+    }
     await DB.put(STORES.trades, item);
     setTrades(p => [...p.filter(t => t.id !== item.id), item]);
     // Discord notification (fire-and-forget, non-blocking)
@@ -106,7 +122,7 @@ function AppProvider({ children }) {
       var sett = await DB.get(STORES.settings, 'settings') || DEFAULT_SETTINGS;
       if (sett.discordEnabled && sett.discordSendOnTrade) {
         var acc = accounts.find(function(a) { return a.id === item.accountId; });
-        DiscordWebhook.sendTrade(item, acc || null, sett).catch(function(){});
+        DiscordWebhook.sendTrade(item, acc || null, sett).catch(function(e){ console.warn('Discord send failed:', e); });
       }
     }
     return item;
@@ -158,11 +174,14 @@ function AppProvider({ children }) {
 
   // ── Settings ──
   const saveSettings = async (s) => {
-    // Merge with existing settings to never lose keys on partial save
     var existing = await DB.get(STORES.settings, 'settings') || {};
-    var item = Object.assign({}, DEFAULT_SETTINGS, existing, s, { id: 'settings' });
-    await DB.put(STORES.settings, item);
-    setSettings(item);
+    var merged = Object.assign({}, DEFAULT_SETTINGS, existing, s, { id: 'settings' });
+    // Auto-enable discord when a valid webhook URL is present
+    if (merged.discordWebhookUrl && merged.discordWebhookUrl.indexOf('discord.com/api/webhooks') >= 0) {
+      if (merged.discordEnabled === undefined) merged.discordEnabled = true;
+    }
+    await DB.put(STORES.settings, merged);
+    setSettings(merged);
   };
 
   // ── Reviews ──

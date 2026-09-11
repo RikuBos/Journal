@@ -89,3 +89,10 @@ window.genId  = genId;
 // Declared once here (db.js loads first after React CDN).
 // All component files call h() as a global without re-declaring.
 window.h = React.createElement;
+
+// Prevent mousewheel from changing number input values
+document.addEventListener('wheel', function(e) {
+  if (document.activeElement && document.activeElement.type === 'number') {
+    document.activeElement.blur();
+  }
+}, { passive: true });

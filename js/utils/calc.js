@@ -250,12 +250,13 @@ var Calc = {
   },
 
   fmt: {
-    currency(val, currency) {
+    currency(val, currency, compact) {
       if (val == null) return '—';
       currency = currency || 'USD';
       var prefix = { USD: '$', EUR: '€', GBP: '£', JPY: '¥', AUD: 'A$', CAD: 'C$' }[currency] || '';
       var abs = Math.abs(val);
-      var str = abs >= 1000 ? (abs / 1000).toFixed(2) + 'k' : abs.toFixed(2);
+      // compact=true for places like sidebar chip, compact=false (default) = full number
+      var str = (compact && abs >= 1000) ? (abs / 1000).toFixed(2) + 'k' : abs.toFixed(2);
       return prefix + str;
     },
     r(val) {

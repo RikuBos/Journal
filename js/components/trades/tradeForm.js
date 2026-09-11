@@ -141,18 +141,21 @@ function TradeForm({ trade, onSave, onClose }) {
   const allConfs  = [...CONFIRMATIONS,  ...(settings?.customConfirmations  || [])];
   const allPOIs   = [...POIS,           ...(settings?.customPOIs           || [])];
 
-  const selField = (label, key, options, placeholder) =>
-    h('div', { className: 'input-group' },
+  var selField = function(label, key, options, placeholder) {
+    var cleanOpts = options
+      .filter(function(o) { return o !== '' && o !== null && o !== undefined; })
+      .map(function(o) { return typeof o === 'string' ? { value: o, label: o } : o; });
+    var allOpts = [{ value: '', label: placeholder || 'Select...' }].concat(cleanOpts);
+    return h('div', { className: 'input-group' },
       h('label', { className: 'input-label' }, label),
       h(UI.CustomDropdown, {
         value: f[key] || '',
         onChange: function(v) { set(key, v); },
-        options: (placeholder ? [{ value: '', label: placeholder }] : []).concat(
-          options.map(function(o) { return { value: o, label: o }; })
-        ),
+        options: allOpts,
         placeholder: placeholder || 'Select...',
       })
     );
+  };
 
   const txtField = (label, key, placeholder) =>
     h('div', { className: 'input-group' },
@@ -268,7 +271,19 @@ function TradeForm({ trade, onSave, onClose }) {
 
     review: h('div', null,
       h('div', { className: 'form-row' },
-        selField('Trade Grade', 'tradeGrade', GRADES, null),
+        h('div', { className: 'input-group' },
+          h('label', { className: 'input-label' },
+            'Grade',
+            f.tradeGradeManual && h('span', { style: { color: 'var(--t3)', fontWeight: 400, fontSize: 10, marginLeft: 6 } }, 'manual override')
+          ),
+          h(UI.CustomDropdown, {
+            value: f.tradeGrade || '',
+            onChange: function(v) { set('tradeGrade', v); set('tradeGradeManual', true); },
+            options: [{ value: '', label: 'Auto' }].concat(GRADES.map(function(g) { return { value: g, label: g }; })),
+            placeholder: 'Auto',
+          }),
+          h('div', { className: 'input-hint' }, f.tradeGradeManual ? 'Manual — double-click to reset to auto' : 'Auto-calculated from execution quality and R-multiple')
+        ),
         h('div', { className: 'input-group' },
           h('label', { className: 'input-label' }, 'Execution Quality'),
           h('div', { style: { background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-1)', borderRadius: 'var(--r2)', padding: '8px 13px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' } },

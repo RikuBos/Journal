@@ -279,6 +279,7 @@ var DiscordWebhook = (function () {
 
   async function sendTrade(trade, account, settings) {
     if (!settings.discordEnabled || !settings.discordSendOnTrade) return { ok: false, error: 'Disabled' };
+    if (!settings.discordWebhookUrl) return { ok: false, error: 'No webhook URL configured' };
     var payload = settings.discordFormat === 'plain'
       ? buildTradePlain(trade, account, settings)
       : buildTradeEmbed(trade, account, settings);

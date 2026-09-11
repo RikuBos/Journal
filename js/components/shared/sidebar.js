@@ -80,7 +80,7 @@ function Sidebar({ page, setPage, collapsed, setCollapsed }) {
             activeAccount ? activeAccount.name : 'No Account'
           ),
           React.createElement('div', { className: 'account-chip-bal' },
-            activeAccount ? Calc.fmt.currency(balance) : '—'
+            activeAccount ? Calc.fmt.currency(balance, null, true) : '—'
           )
         )
       )
