@@ -36,12 +36,14 @@ function DashboardPage() {
     return pts;
   }, [accountTrades, activeAccount]);
 
-  const ddInfo = uMemo(() => {
+  var ddInfo = uMemo(function() {
     if (!activeAccount) return { amount: 0, pct: 0, dailyDD: 0 };
-    const vals = curvePts.map(p => p.balance);
-    const dd   = Calc.maxDrawdown(vals);
-    const dailyDD = Calc.dailyDrawdown(accountTrades);
-    return { ...dd, dailyDD };
+    var vals = curvePts.map(function(p) { return p.balance; });
+    // Use currentDrawdown: resets to 0 when balance makes a new peak
+    // This matches how funded account trailing drawdown works
+    var dd = Calc.currentDrawdown(vals, activeAccount.startingBalance);
+    var dailyDD = Calc.dailyDrawdown(accountTrades);
+    return Object.assign({}, dd, { dailyDD: dailyDD });
   }, [curvePts, accountTrades, activeAccount]);
 
   const ddPct      = activeAccount?.maxLoss  > 0 ? (ddInfo.amount   / activeAccount.maxLoss)  * 100 : 0;

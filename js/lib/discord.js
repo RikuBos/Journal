@@ -396,12 +396,9 @@ async function sendScheduledReport(type, trades, accounts, settings) {
     'Total P/L:          ' + sign(stats.totalPL) + '$' + Math.abs(stats.totalPL).toFixed(2),
     'Balance Change:     ' + sign(stats.balChange) + '$' + Math.abs(stats.balChange).toFixed(2) +
                              '  (' + sign(stats.balChangePct) + stats.balChangePct + '%)',
-  ].join('
-');
+  ].join('\n');
 
-  var payload = { content: '```
-' + body + '
-```' };
+  var payload = { content: '```\n' + body + '\n```' };
   if (settings.discordUsername) payload.username = settings.discordUsername;
 
   try {

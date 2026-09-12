@@ -100,13 +100,15 @@ var Calc = {
     return +(sum / closed.length).toFixed(2);
   },
 
+  // Historical worst peak-to-trough drawdown
   maxDrawdown(equityCurve) {
     if (!equityCurve.length) return { amount: 0, pct: 0 };
-    let peak = equityCurve[0], maxDD = 0, maxDDPct = 0;
-    for (const val of equityCurve) {
+    var peak = equityCurve[0], maxDD = 0, maxDDPct = 0;
+    for (var i = 0; i < equityCurve.length; i++) {
+      var val = equityCurve[i];
       if (val > peak) peak = val;
-      const dd    = peak - val;
-      const ddPct = peak > 0 ? (dd / peak) * 100 : 0;
+      var dd    = peak - val;
+      var ddPct = peak > 0 ? (dd / peak) * 100 : 0;
       if (dd > maxDD) { maxDD = dd; maxDDPct = ddPct; }
     }
     return { amount: +maxDD.toFixed(2), pct: +maxDDPct.toFixed(2) };

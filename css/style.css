@@ -1137,25 +1137,46 @@ input[type=number] {
   appearance: textfield;
 }
 
-/* ── TIME INPUT STYLING ──────────────────────────────────── */
-input[type=time] {
-  color-scheme: dark;
-  cursor: pointer;
-}
-input[type=time]::-webkit-calendar-picker-indicator {
-  filter: invert(0.6) sepia(1) saturate(2) hue-rotate(180deg);
-  cursor: pointer;
-  opacity: 0.6;
-}
-input[type=time]::-webkit-calendar-picker-indicator:hover {
-  opacity: 1;
-}
+/* ── TIME & DATE INPUT STYLING ───────────────────────────── */
+input[type=time],
 input[type=date] {
   color-scheme: dark;
   cursor: pointer;
 }
+/* Tone down the clock/calendar icon */
+input[type=time]::-webkit-calendar-picker-indicator,
 input[type=date]::-webkit-calendar-picker-indicator {
-  filter: invert(0.6) sepia(1) saturate(2) hue-rotate(180deg);
+  filter: invert(0.45);
   cursor: pointer;
-  opacity: 0.6;
+  opacity: 0.5;
+  border-radius: 3px;
+}
+input[type=time]::-webkit-calendar-picker-indicator:hover,
+input[type=date]::-webkit-calendar-picker-indicator:hover {
+  opacity: 0.8;
+  filter: invert(0.7);
+}
+/* The time/date dropdown popup - force dark colors */
+::-webkit-datetime-edit { color: rgba(255,255,255,0.8); }
+::-webkit-datetime-edit-fields-wrapper { background: transparent; }
+::-webkit-datetime-edit-hour-field,
+::-webkit-datetime-edit-minute-field,
+::-webkit-datetime-edit-ampm-field,
+::-webkit-datetime-edit-day-field,
+::-webkit-datetime-edit-month-field,
+::-webkit-datetime-edit-year-field {
+  color: rgba(255,255,255,0.8);
+  background: transparent;
+  border-radius: 3px;
+  padding: 1px 2px;
+}
+::-webkit-datetime-edit-hour-field:focus,
+::-webkit-datetime-edit-minute-field:focus,
+::-webkit-datetime-edit-ampm-field:focus,
+::-webkit-datetime-edit-day-field:focus,
+::-webkit-datetime-edit-month-field:focus,
+::-webkit-datetime-edit-year-field:focus {
+  background: rgba(255,255,255,0.12);
+  color: rgba(255,255,255,0.95);
+  outline: none;
 }
