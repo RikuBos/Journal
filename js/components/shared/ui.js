@@ -248,45 +248,60 @@ function showContextMenu(e, items) {
 // ── CUSTOM DROPDOWN ────────────────────────────────────────
 function CustomDropdown({ value, onChange, options, placeholder }) {
   var [open, setOpen] = React.useState(false);
-  var ref = React.useRef(null);
+  var [menuStyle, setMenuStyle] = React.useState({});
+  var triggerRef = React.useRef(null);
 
   React.useEffect(function() {
-    function handler(e) {
-      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+    function close(e) {
+      if (triggerRef.current && !triggerRef.current.contains(e.target)) setOpen(false);
     }
-    document.addEventListener('mousedown', handler);
-    return function() { document.removeEventListener('mousedown', handler); };
+    document.addEventListener('mousedown', close);
+    return function() { document.removeEventListener('mousedown', close); };
   }, []);
 
-  var selected = options.find(function(o) {
-    return (o.value !== undefined ? o.value : o) === value;
+  function handleOpen() {
+    if (!triggerRef.current) return;
+    var rect = triggerRef.current.getBoundingClientRect();
+    var menuH = Math.min((options || []).length * 36 + 8, 280);
+    var spaceBelow = window.innerHeight - rect.bottom;
+    var top = spaceBelow > menuH ? rect.bottom + 4 : rect.top - menuH - 4;
+    setMenuStyle({ top: top, left: rect.left, minWidth: rect.width });
+    setOpen(function(o) { return !o; });
+  }
+
+  var selected = (options || []).find(function(o) {
+    return (o && o.value !== undefined ? o.value : o) === value;
   });
-  var label = selected
+  var displayLabel = selected
     ? (selected.label !== undefined && selected.label !== null ? selected.label : selected)
     : (placeholder || 'Select');
 
-  return h('div', { className: 'custom-dropdown', ref: ref },
+  return h('div', { className: 'custom-dropdown', ref: triggerRef },
     h('div', {
       className: 'custom-dropdown-trigger' + (open ? ' open' : ''),
-      onClick: function() { setOpen(function(o) { return !o; }); },
+      onClick: handleOpen,
     },
-      h('span', null, label),
+      h('span', null, displayLabel),
       h('div', { className: 'custom-dropdown-arrow' })
     ),
-    open && h('div', { className: 'custom-dropdown-menu' },
-      options.map(function(opt, i) {
-        var optVal   = opt.value !== undefined ? opt.value : opt;
-        var optLabel = (opt.label !== undefined && opt.label !== null) ? opt.label : opt;
+    open && h('div', {
+      className: 'custom-dropdown-menu',
+      style: menuStyle,
+    },
+      (options || []).map(function(opt, i) {
+        var optVal   = (opt && opt.value !== undefined) ? opt.value : opt;
+        var optLabel = (opt && opt.label !== undefined && opt.label !== null) ? opt.label : opt;
         var isSel    = optVal === value;
         return h('div', {
           key: i,
           className: 'custom-dropdown-item' + (isSel ? ' selected' : ''),
           onClick: function() { onChange(optVal); setOpen(false); },
-        }, optLabel || h('span', {style:{color:'var(--t4)',fontStyle:'italic'}}, 'None'));
+        }, optLabel || h('span', { style:{ color:'var(--t4)', fontStyle:'italic' } }, 'None'));
       })
     )
   );
 }
+
 
 window.UI = {
   Icon, Modal, ConfirmModal, GradeBadge, DirBadge,

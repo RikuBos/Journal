@@ -3,15 +3,17 @@
 // ============================================================
 
 function PayoutPage() {
-  var { accounts, activeAccountId, upsertAccount, trades, activeAccount } = useApp();
+  var { accounts, activeAccountId, upsertAccount, trades, activeAccount, settings } = useApp();
   var [selectedAccId, setSelAcc] = React.useState(activeAccountId || '');
   var [profitSplit,   setSplit]  = React.useState(90);
-  var [taxRate,       setTax]    = React.useState(30);
+  var [taxRate,       setTax]    = React.useState(0);
   var [tab,           setTab]    = React.useState('calculator');
 
   var acc = React.useMemo(function() {
-    return accounts.find(function(a) { return a.id === selectedAccId; }) || activeAccount;
-  }, [selectedAccId, accounts, activeAccount]);
+    var found = accounts.find(function(a) { return a.id === selectedAccId; }) || activeAccount;
+    if (found && found.taxRate !== undefined) setTax(found.taxRate);
+    return found;
+  }, [selectedAccId, accounts]);
 
   var accTrades = React.useMemo(function() {
     if (!acc) return [];
@@ -22,7 +24,9 @@ function PayoutPage() {
   var calc = React.useMemo(function() {
     if (!acc) return null;
     var startBal    = acc.cycleStartBalance || acc.startingBalance || 0;
-    var currentBal  = startBal + accTrades.reduce(function(s,t) { return s + (t.profitLoss||0); }, 0);
+    var rawBalance  = acc.startingBalance + accTrades.reduce(function(s,t) { return s + (t.profitLoss||0); }, 0);
+    var currentBal  = rawBalance;
+    // Gross profit is profit since the cycle start
     var grossProfit = Math.max(0, currentBal - startBal);
     var split       = (acc.profitSplit || profitSplit) / 100;
     var buffer      = 40; // $40 buffer to keep in account
@@ -66,27 +70,54 @@ function PayoutPage() {
 
   async function doPayout() {
     if (!acc || !calc || !calc.canPayout) return;
-    // Record payout
+
     var payoutRecord = {
       date:         new Date().toISOString().slice(0,10),
       grossProfit:  calc.grossProfit,
       grossPayout:  calc.grossPayout,
       taxAmt:       calc.taxAmt,
       netPayout:    calc.netPayout,
+      available:    calc.available,
       balanceBefore:calc.currentBal,
       profitSplit:  acc.profitSplit || profitSplit,
+      taxRate:      taxRate,
     };
-    var history = (acc.payoutHistory || []).concat(payoutRecord);
-    var totalPayouts = (acc.totalPayouts || 0) + calc.netPayout;
-    // Reset cycle: new cycle starts from current balance MINUS the gross profit
-    // (trader keeps their starting balance + 40 buffer, profit goes to firm)
-    var newCycleStart = acc.startingBalance; // reset to original starting balance
+    var history      = (acc.payoutHistory || []).concat(payoutRecord);
+    var totalPayouts = (acc.totalPayouts || 0) + calc.available;
+
+    // Cycle reset: starting balance + $40 buffer
+    var newCycleStart = acc.startingBalance + 40;
+
     await upsertAccount(Object.assign({}, acc, {
       totalPayouts:      totalPayouts,
       payoutHistory:     history,
       cycleStartBalance: newCycleStart,
+      taxRate:           taxRate,
     }));
-    UI.toast('Payout recorded. Cycle reset to $' + newCycleStart.toLocaleString(), 'success');
+
+    // Send Discord notification
+    if (settings && settings.discordEnabled && settings.discordWebhookUrl) {
+      var msg = [
+        'PAYOUT  ' + payoutRecord.date,
+        'Account: ' + acc.name + '  (' + acc.propFirm + ')',
+        'Gross Profit:      $' + calc.grossProfit.toFixed(2),
+        'Your Split (' + (acc.profitSplit || 90) + '%): $' + calc.grossPayout.toFixed(2),
+        'Tax (' + taxRate + '%):         -$' + calc.taxAmt.toFixed(2),
+        'Buffer:            -$40.00',
+        'You Take Home:     $' + calc.available.toFixed(2),
+        'New Cycle Start:   $' + newCycleStart.toLocaleString(),
+      ].join('\n');
+      fetch(settings.discordWebhookUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          content: '```\n' + msg + '\n```',
+          username: settings.discordUsername || 'Trading Journal',
+        }),
+      }).catch(function() {});
+    }
+
+    UI.toast('Payout $' + calc.available.toFixed(2) + ' recorded. Cycle reset.', 'success');
   }
 
   if (!acc) return h('div', { className: 'page-header' },
@@ -254,7 +285,13 @@ function PayoutPage() {
                 h('div', { className: 'input-group' },
                   h('label', { className: 'input-label' }, 'Tax Rate (%)'),
                   h('input', { className: 'input-field', type: 'number', min: 0, max: 50,
-                    value: taxRate, onChange: function(e) { setTax(Number(e.target.value)||0); } })
+                    value: taxRate,
+                    onChange: function(e) { setTax(Number(e.target.value) || 0); },
+                    onBlur: async function(e) {
+                      var v = Number(e.target.value) || 0;
+                      if (acc) await upsertAccount(Object.assign({}, acc, { taxRate: v }));
+                    },
+                  })
                 )
               )
             )
