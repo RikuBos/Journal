@@ -235,7 +235,7 @@ function AppProvider({ children }) {
   const value = {
     accounts, trades, journals, weeklyReviews, monthlyReviews, playbook, mistakes, settings,
     activeAccount, activeAccountId, accountTrades, loading,
-    upsertAccount, deleteAccount, switchAccount,
+    upsertAccount, deleteAccount, upsertAccount, switchAccount,
     upsertTrade,   deleteTrade,
     upsertJournal,
     upsertPlaybook, deletePlaybook,

@@ -40,7 +40,7 @@ function MistakesPage() {
     ),
     h('div', { className: 'page-body' },
       stats.length === 0
-        ? h(UI.EmptyState, { icon: 'mistakes', title: 'No mistakes recorded', desc: 'Record trades with mistakes to see analysis. Every loss is a learning opportunity.' })
+        ? h(UI.EmptyState, { title: 'No mistakes recorded', desc: 'Record trades with mistakes to see analysis. Every loss is a learning opportunity.' })
         : h('div', { style: { display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 28 } },
             stats.map((m, i) => h('div', { key: i, className: 'glass-card' },
               h('div', { style: { padding: 15 } },
@@ -105,7 +105,13 @@ function PlaybookPage() {
 
   function SetupForm({ setup, onSave, onClose }) {
     const [f, setF] = React.useState(setup || { name:'', description:'', htfBias:[], poi:[], confirmation:[], entryModel:'', invalidation:'', target:'', riskRules:'', checklist:[], notes:'' });
-    const set = (k, v) => setF(p => ({ ...p, [k]: v }));
+    var set = function(k, v) {
+    setF(function(prev) {
+      var next = Object.assign({}, prev, { [k]: v });
+      autoSave(next);
+      return next;
+    });
+  };
     const tog = (key, val) => set(key, f[key].includes(val) ? f[key].filter(x => x !== val) : [...f[key], val]);
     const [item, setItem] = React.useState('');
     return h('div', null,
@@ -146,7 +152,7 @@ function PlaybookPage() {
     ),
     h('div', { className: 'page-body' },
       playbook.length === 0
-        ? h(UI.EmptyState, { icon: 'playbook', title: 'No setups defined', desc: 'Build your trading playbook — define setups, conditions, and checklists.', action: h('button', { className: 'btn btn-primary', onClick: () => setShowForm(true) }, 'Add Setup') })
+        ? h(UI.EmptyState, { title: 'No setups defined', desc: 'Build your trading playbook — define setups, conditions, and checklists.', action: h('button', { className: 'btn btn-primary', onClick: () => setShowForm(true) }, 'Add Setup') })
         : h('div', { style: { display: 'grid', gridTemplateColumns: selected ? '280px 1fr' : 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16, transition: 'all 0.2s' } },
             // Left: setup cards
             h('div', { style: { display: 'flex', flexDirection: 'column', gap: 10, maxHeight: selected ? '78vh' : 'none', overflowY: selected ? 'auto' : 'visible' } },
@@ -156,8 +162,8 @@ function PlaybookPage() {
               onClick: function() { setSelected(selected && selected.id === s.id ? null : s); },
               onContextMenu: function(e) { e.preventDefault();
                 UI.showContextMenu(e, [
-                  { label: 'Edit Setup',   icon: 'edit',  action: function() { setEditSetup(s); setShowForm(true); } },
-                  { label: 'Delete Setup', icon: 'trash', danger: true, action: function() { setConfirmDel(s.id); } },
+                  { label: 'Edit Setup', action: function() { setEditSetup(s); setShowForm(true); } },
+                  { label: 'Delete Setup', danger: true, action: function() { setConfirmDel(s.id); } },
                 ]);
               },
             },
@@ -269,7 +275,13 @@ function ReviewsPage() {
     const misMap = trs.filter(t => t.mistake).reduce((m, t) => { m[t.mistake] = (m[t.mistake]||0)+1; return m; }, {});
     const topMistake = Object.entries(misMap).sort((a,b) => b[1]-a[1])[0]?.[0] || ' ';
     const [f, setF] = React.useState({ whatWorked: existing?.whatWorked||'', whatFailed: existing?.whatFailed||'', needsImprovement: existing?.needsImprovement||'', nextWeekFocus: existing?.nextWeekFocus||'' });
-    const set = (k, v) => setF(p => ({ ...p, [k]: v }));
+    var set = function(k, v) {
+    setF(function(prev) {
+      var next = Object.assign({}, prev, { [k]: v });
+      autoSave(next);
+      return next;
+    });
+  };
     return h('div', null,
       h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 10, marginBottom: 16 } },
         [
@@ -334,7 +346,7 @@ function ReviewsPage() {
     ),
     h('div', { className: 'page-body' },
       tab === 'weekly' && (weeks.length === 0
-        ? h(UI.EmptyState, { icon: 'reviews', title: 'No trading weeks yet', desc: 'Record trades to start generating weekly reviews.' })
+        ? h(UI.EmptyState, { title: 'No trading weeks yet', desc: 'Record trades to start generating weekly reviews.' })
         : h('div', { style: { display: 'flex', flexDirection: 'column', gap: 12 } },
             weeks.map(wk => {
               const ex  = weeklyReviews.find(r => r.weekStart === wk.weekStart);
@@ -375,7 +387,7 @@ function ReviewsPage() {
       ),
 
       tab === 'monthly' && (months.length === 0
-        ? h(UI.EmptyState, { icon: 'reviews', title: 'No monthly data yet', desc: 'Record trades across different months to generate monthly reviews.' })
+        ? h(UI.EmptyState, { title: 'No monthly data yet', desc: 'Record trades across different months to generate monthly reviews.' })
         : h('div', { style: { display: 'flex', flexDirection: 'column', gap: 12 } },
             months.map(mo => {
               const ex  = monthlyReviews.find(r => r.year === mo.year && r.month === mo.month);
@@ -438,7 +450,13 @@ function JournalPage() {
       actualMarketBehavior: existing?.actualMarketBehavior || '', emotionalState: existing?.emotionalState || 'Calm',
       lessons: existing?.lessons || '', tomorrowPlan: existing?.tomorrowPlan || '',
     });
-    const set = (k, v) => setF(p => ({ ...p, [k]: v }));
+    var set = function(k, v) {
+    setF(function(prev) {
+      var next = Object.assign({}, prev, { [k]: v });
+      autoSave(next);
+      return next;
+    });
+  };
     const ta = (label, key, ph) => h('div', { className: 'input-group' }, h('label', { className: 'input-label' }, label), h('textarea', { className: 'textarea-field', placeholder: ph, value: f[key], onChange: e => set(key, e.target.value) }));
     return h('div', null,
       h('div', { className: 'form-row' },
@@ -568,16 +586,26 @@ function SettingsPage() {
   const [newConf,      setNC]   = React.useState('');
   const [newPOI,       setNP]   = React.useState('');
   const [loaded,       setLoaded] = React.useState(false);
-  const set = (k, v) => setF(p => ({ ...p, [k]: v }));
+  var set = function(k, v) {
+    setF(function(prev) {
+      var next = Object.assign({}, prev, { [k]: v });
+      autoSave(next);
+      return next;
+    });
+  };
 
   // Sync form state from context whenever settings loads or changes
-  // This fixes the bug where webhook URL resets on page navigation
   React.useEffect(function() {
     if (settings && settings.id) {
       setF(Object.assign({}, DEFAULT_SETTINGS, settings));
       setLoaded(true);
     }
   }, [settings]);
+
+  // Auto-save helper — call after any field changes
+  var autoSave = React.useCallback(async function(updated) {
+    try { await saveSettings(updated); } catch(e) {}
+  }, [saveSettings]);
 
   const addCustom = (key, val, clear) => {
     if (!val.trim()) return;

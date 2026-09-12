@@ -2,58 +2,6 @@
 // ACCOUNTS PAGE
 // ============================================================
 
-function AccountForm({ account, onSave, onClose }) {
-  const [f, setF] = React.useState(account || {
-    name:'', propFirm:'', accountSize:5000, accountType:'', phase:'Phase 1',
-    startingBalance:5000, currentBalance:5000, currentEquity:5000,
-    profitTarget:500, maxLoss:250, dailyLoss:100, riskPerTrade:1,
-    maxTradesPerDay:3, minTradingDays:5, currentTradingDays:0, maxOpenRisk:2,
-    status:'Active', startDate: new Date().toISOString().split('T')[0], endDate:'', notes:'', isActive:false,
-  });
-  const set = (k, v) => setF(p => ({ ...p, [k]: v }));
-  const fi  = (label, key, type='text', step) =>
-    h('div', { className: 'input-group' }, h('label', { className: 'input-label' }, label),
-      h('input', { className: 'input-field', type, step, value: f[key], onChange: e => set(key, type === 'number' ? +e.target.value : e.target.value) })
-    );
-  return h('div', null,
-    h('div', { className: 'form-row' },
-      fi('Account Name *',  'name'),
-      fi('Prop Firm',       'propFirm'),
-      fi('Account Type',    'accountType'),
-      h('div', { className: 'input-group' }, h('label', { className: 'input-label' }, 'Phase'),
-        h(UI.CustomDropdown, { value: f.phase||'', onChange: function(v){set('phase',v);}, options: PHASES.map(function(p){return{value:p,label:p};}), placeholder:'Select Phase' })
-      ),
-      fi('Account Size',    'accountSize',  'number'),
-      fi('Starting Balance','startingBalance','number'),
-      h('div', { className: 'input-group' }, h('label', { className: 'input-label' }, 'Status'),
-        h(UI.CustomDropdown, { value: f.status||'Active', onChange: function(v){set('status',v);}, options: ['Active','Passed','Failed','Archived'].map(function(s){return{value:s,label:s};}) })
-      ),
-      fi('Start Date', 'startDate', 'date'),
-    ),
-    h('hr', { className: 'section-divider' }),
-    h('div', { className: 'section-heading' }, 'Account Rules'),
-    h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: '0 16px' } },
-      fi('Profit Target ($)',   'profitTarget',   'number'),
-      fi('Max Drawdown ($)',    'maxLoss',         'number'),
-      fi('Daily Loss Limit ($)','dailyLoss',       'number'),
-      fi('Risk Per Trade (%)',  'riskPerTrade',    'number', 0.1),
-      fi('Max Trades/Day',     'maxTradesPerDay', 'number'),
-      fi('Min Trading Days',   'minTradingDays',  'number'),
-      fi('Max Open Risk (%)',   'maxOpenRisk',     'number', 0.1),
-    ),
-    h('div', { className: 'input-group', style: { marginTop: 4 } },
-      h('label', { className: 'input-label' }, 'Notes'),
-      h('textarea', { className: 'textarea-field', value: f.notes, onChange: e => set('notes', e.target.value), placeholder: 'Additional notes about this account or challenge rules' })
-    ),
-    h('div', { style: { display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 8 } },
-      h('button', { className: 'btn btn-secondary', onClick: onClose }, 'Cancel'),
-      h('button', { className: 'btn btn-primary', onClick: () => { if (!f.name.trim()) return UI.toast('Account name required', 'warning'); onSave(f); onClose(); } },
-        h(UI.Icon, { name: 'save', size: 13 }), account ? 'Update Account' : 'Create Account'
-      )
-    )
-  );
-}
-
 function AccountsPage() {
   const { accounts, trades, upsertAccount, deleteAccount, switchAccount, activeAccountId } = useApp();
   const [showForm,   setShowForm]   = React.useState(false);

@@ -196,8 +196,7 @@ function TradesPage() {
       ),
 
       filtered.length === 0
-        ? h(UI.EmptyState, {
-            icon: 'trades', title: 'No trades found',
+        ? h(UI.EmptyState, { title: 'No trades found',
             desc: trades.length === 0 ? 'Add your first trade to start building your journal.' : 'No trades match your current filters.',
             action: trades.length === 0 && h('button', { className: 'btn btn-primary', onClick: () => setShowForm(true) }, 'Add Trade')
           })
@@ -220,9 +219,9 @@ function TradesPage() {
                 onContextMenu: function(e) {
                   e.preventDefault();
                   UI.showContextMenu(e, [
-                    { label: 'Edit Trade', icon: 'edit', action: () => { setEditTrade(t); setShowForm(true); setSelected(null); } },
-                    { label: 'View Details', icon: 'eye', action: () => { setSelected(t); } },
-                    { label: 'Delete Trade', icon: 'trash', danger: true, action: () => setConfirmDel(t.id) },
+                    { label: 'Edit Trade', action: () => { setEditTrade(t); setShowForm(true); setSelected(null); } },
+                    { label: 'View Details', action: () => { setSelected(t); } },
+                    { label: 'Delete Trade', danger: true, action: () => setConfirmDel(t.id) },
                   ]);
                 },
                 style: { cursor: 'pointer' },
