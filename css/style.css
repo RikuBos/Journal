@@ -1180,3 +1180,6 @@ input[type=date]::-webkit-calendar-picker-indicator:hover {
   color: rgba(255,255,255,0.95);
   outline: none;
 }
+
+/* ── PAGE HEADER BUTTON FIX ─────────────────────────────── */
+.page-header .btn { white-space: nowrap; flex-shrink: 0; }

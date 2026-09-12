@@ -638,7 +638,8 @@ function SettingsPage() {
   return h('div', null,
     h('div', { className: 'page-header' },
       h('div', null, h('div', { className: 'page-title' }, 'Settings'), h('div', { className: 'page-subtitle' }, 'Configure your trading journal')),
-      h('button', { className: 'btn btn-primary', onClick: async () => { await saveSettings(f); UI.toast('Settings saved', 'success'); } }, 'Save Settings')
+      h('span', { style: { fontSize: 12, color: 'var(--green)', display: 'flex', alignItems: 'center', gap: 5 } },
+        h(UI.Icon, { name: 'check', size: 12 }), 'Auto-saving')
     ),
     h('div', { className: 'page-tabs' },
       [{ id:'general', label:'General' }, { id:'trading', label:'Trading Concepts' }, { id:'data', label:'Data Management' }, { id:'discord', label:'Discord Webhook' }].map(t =>

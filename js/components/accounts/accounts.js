@@ -28,7 +28,7 @@ function AccountsPage() {
     ),
     h('div', { className: 'page-body' },
       accounts.length === 0
-        ? h(UI.EmptyState, { icon: 'accounts', title: 'No accounts yet', desc: 'Create your first funded account to start tracking.', action: h('button', { className: 'btn btn-primary', onClick: () => setShowForm(true) }, 'Create Account') })
+        ? h(UI.EmptyState, { title: 'No accounts yet', desc: 'Create your first funded account to start tracking.', action: h('button', { className: 'btn btn-primary', onClick: () => setShowForm(true) }, 'Create Account') })
         : h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(330px, 1fr))', gap: 16 } },
             accounts.map(acc => {
               const s       = getStats(acc);
@@ -37,9 +37,9 @@ function AccountsPage() {
               className: 'account-card' + (isActive ? ' is-active' : ''),
               onContextMenu: function(e) { e.preventDefault();
                 UI.showContextMenu(e, [
-                  { label: 'Edit Account',   icon: 'edit',    action: function() { setEditAcc(acc); setShowForm(true); } },
-                  { label: 'Set as Active',  icon: 'target',  action: function() { switchAccount(acc.id); UI.toast('Account switched', 'success'); } },
-                  { label: 'Delete Account', icon: 'trash',   danger: true, action: function() { setConfirmDel(acc.id); } },
+                  { label: 'Edit Account',    action: function() { setEditAcc(acc); setShowForm(true); } },
+                  { label: 'Set as Active',  action: function() { switchAccount(acc.id); UI.toast('Account switched', 'success'); } },
+                  { label: 'Delete Account',   danger: true, action: function() { setConfirmDel(acc.id); } },
                 ]);
               },
             },
@@ -48,9 +48,10 @@ function AccountsPage() {
                     h('div', { className: 'account-firm' }, acc.propFirm),
                     h('div', { className: 'account-name' }, acc.name),
                     h('div', { style: { display: 'flex', gap: 5, marginTop: 6, flexWrap: 'wrap' } },
-                      h('span', { className: 'badge badge-gray' }, acc.phase),
-                      h('span', { className: `badge ${acc.status==='Active'?'badge-green':acc.status==='Passed'?'badge-blue':'badge-red'}` }, acc.status),
-                      isActive && h('span', { className: 'badge badge-blue' }, 'Active')
+                      h('span', { className: 'badge badge-gray' }, acc.phase || 'Funded'),
+                      isActive
+                        ? h('span', { className: 'badge badge-green', style: { boxShadow: '0 0 8px rgba(52,211,153,0.3)' } }, 'Active')
+                        : h('span', { className: 'badge badge-gray' }, 'Inactive')
                     )
                   ),
                   h('div', { style: { textAlign: 'right' } },
@@ -61,8 +62,16 @@ function AccountsPage() {
                 // Progress bars
                 h('div', { style: { marginBottom: 12 } },
                   h('div', { style: { display: 'flex', justifyContent: 'space-between', fontSize: 10.5, color: 'var(--t3)', marginBottom: 4 } },
-                    h('span', null, 'Profit Target'),
-                    h('span', null, `${s.targPct.toFixed(0)}% · ${Calc.fmt.currency(s.totalPL)} / ${Calc.fmt.currency(acc.profitTarget)}`)
+                    h('span', null,
+                      acc.phase === 'Phase 2' ? 'Phase 2 Target' : 
+                      acc.phase === 'Phase 1' ? 'Phase 1 Target' : 'Profit Target'
+                    ),
+                    h('span', null,
+                      (function() {
+                        var target = acc.phase === 'Phase 2' ? (acc.phase2Target || acc.profitTarget) : acc.profitTarget;
+                        return s.targPct.toFixed(0) + '%  ·  ' + Calc.fmt.currency(s.totalPL) + ' / ' + Calc.fmt.currency(target);
+                      })()
+                    )
                   ),
                   h('div', { className: 'progress-track' }, h('div', { className: `progress-fill ${s.targPct >= 100 ? 'green' : 'blue'}`, style: { width: `${Math.min(100, s.targPct)}%` } })),
                   h('div', { style: { display: 'flex', justifyContent: 'space-between', fontSize: 10.5, color: 'var(--t3)', marginTop: 8, marginBottom: 4 } },

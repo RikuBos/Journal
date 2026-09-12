@@ -72,6 +72,7 @@ function App() {
     trades:    TradesPage,
     accounts:  AccountsPage,
     calendar:  CalendarPage,
+    payout:    PayoutPage,
     analytics: AnalyticsPage,
     mistakes:  MistakesPage,
     playbook:  PlaybookPage,

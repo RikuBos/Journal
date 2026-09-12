@@ -48,8 +48,9 @@ function PayoutPage() {
     }
 
     // Growth requirement: need 2% above cycle start
-    var growthRequired  = startBal * 0.02;
-    var growthMet       = grossProfit >= growthRequired;
+    var isOnDemand      = !acc.cycleType || acc.cycleType === 'on_demand';
+    var growthRequired  = isOnDemand ? startBal * 0.02 : 0; // 14-day: no growth req
+    var growthMet       = isOnDemand ? grossProfit >= growthRequired : grossProfit > 0;
     var growthRemaining = Math.max(0, growthRequired - grossProfit);
 
     return {
@@ -59,6 +60,7 @@ function PayoutPage() {
       consistencyPct, consistencyPasses,
       growthRequired, growthMet, growthRemaining,
       canPayout: growthMet && consistencyPasses && grossProfit > 0,
+      isOnDemand,
     };
   }, [acc, accTrades, profitSplit, taxRate]);
 
@@ -180,12 +182,17 @@ function PayoutPage() {
           h('div', { style: { display: 'flex', flexDirection: 'column', gap: 14 } },
             // Rules compliance
             h('div', { className: 'glass-card' },
-              h('div', { className: 'card-header' }, h('span', { className: 'card-title' }, 'Withdrawal Rules')),
+              h('div', { className: 'card-header' }, 
+              h('span', { className: 'card-title' }, 'Withdrawal Rules'),
+              h('span', { className: 'badge ' + (acc.cycleType === '14_day' ? 'badge-gray' : 'badge-blue') },
+                acc.cycleType === '14_day' ? '14 Day Cycle' : 'On Demand'
+              )
+            ),
               h('div', { className: 'card-body' },
                 // Growth 2% rule
                 h('div', { className: 'metric-row' },
                   h('div', null,
-                    h('div', { style: { fontSize: 13, color: 'var(--t2)' } }, '2% Growth Requirement'),
+                    h('div', { style: { fontSize: 13, color: 'var(--t2)' } }, (c.isOnDemand ? '2% Growth Requirement (On Demand)' : 'Positive P/L Required (14-Day)')),
                     h('div', { style: { fontSize: 11, color: 'var(--t3)', marginTop: 2 } },
                       '$' + (c.growthRequired||0).toFixed(2) + ' needed' +
                       (c.growthMet ? '' : '  —  $' + (c.growthRemaining||0).toFixed(2) + ' remaining')

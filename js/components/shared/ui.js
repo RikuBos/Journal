@@ -229,7 +229,7 @@ function ContextMenuProvider({ children }) {
           className: 'inline-edit-item' + (item.danger ? ' danger' : ''),
           onClick: function() { item.action(); setMenu(null); },
         },
-          h(Icon, { name: item.icon, size: 14 }),
+          item.icon ? h(Icon, { name: item.icon, size: 14 }) : null,
           item.label
         );
       })

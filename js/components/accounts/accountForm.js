@@ -54,8 +54,12 @@ function AccountForm({ account, onSave, onClose }) {
   var sizes  = getSizes(firm, instrType, modelName);
   var instrTypes = getInstrTypes(firm);
 
+  var [initialized, setInitialized] = React.useState(false);
+  React.useEffect(function() { setInitialized(true); }, []);
+
   // Auto-switch instrType if firm doesn't support current
   React.useEffect(function() {
+    if (!initialized) return; // Don't reset on first render (editing existing)
     var types = getInstrTypes(firm);
     if (types.length > 0 && !types.includes(instrType)) {
       setInstr(types[0]);
@@ -65,6 +69,7 @@ function AccountForm({ account, onSave, onClose }) {
   }, [firm]);
 
   React.useEffect(function() {
+    if (!initialized) return;
     setModel('');
     setSize(0);
   }, [instrType]);
@@ -110,8 +115,13 @@ function AccountForm({ account, onSave, onClose }) {
       // Payout tracking
       totalPayouts:    account ? (account.totalPayouts || 0) : 0,
       payoutHistory:   account ? (account.payoutHistory || []) : [],
+      cycleType:         window._cycleType || (account ? account.cycleType : 'on_demand') || 'on_demand',
       cycleStartBalance: account ? (account.cycleStartBalance || size) : size,
+      // Phase-specific targets from model data
+      phase1Target:      sd.phase1Target || sd.profitTarget || 0,
+      phase2Target:      sd.phase2Target || 0,
     };
+    window._cycleType = undefined;
     onSave(acc);
     onClose();
   }
