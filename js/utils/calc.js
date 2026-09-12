@@ -114,6 +114,18 @@ var Calc = {
     return { amount: +maxDD.toFixed(2), pct: +maxDDPct.toFixed(2) };
   },
 
+  currentDrawdown(equityCurve, startingBalance) {
+    if (!equityCurve || !equityCurve.length) return { amount: 0, pct: 0 };
+    var peak = startingBalance || equityCurve[0];
+    for (var i = 0; i < equityCurve.length; i++) {
+      if (equityCurve[i] > peak) peak = equityCurve[i];
+    }
+    var current = equityCurve[equityCurve.length - 1];
+    var dd    = Math.max(0, peak - current);
+    var ddPct = peak > 0 ? (dd / peak) * 100 : 0;
+    return { amount: +dd.toFixed(2), pct: +ddPct.toFixed(2), peak: +peak.toFixed(2) };
+  },
+
   dailyDrawdown(trades) {
     const today = new Date().toISOString().split('T')[0];
     const todayLosses = trades
