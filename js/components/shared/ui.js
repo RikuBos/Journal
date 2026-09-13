@@ -246,97 +246,122 @@ function showContextMenu(e, items) {
 
 
 // ── CUSTOM DROPDOWN ────────────────────────────────────────
-function CustomDropdown({ value, onChange, options, placeholder }) {
-  var [open, setOpen]     = React.useState(false);
-  var [menuPos, setMenuPos] = React.useState({ top: 0, left: 0, width: 120 });
-  var wrapRef = React.useRef(null);
+// ── CUSTOM DROPDOWN — Portal-based, immune to parent transforms ──
+var _ddPortal = null;
+function getPortal() {
+  if (!_ddPortal) {
+    _ddPortal = document.createElement('div');
+    _ddPortal.id = 'dd-portal';
+    _ddPortal.style.cssText = 'position:fixed;top:0;left:0;width:0;height:0;z-index:999999;';
+    document.body.appendChild(_ddPortal);
+  }
+  return _ddPortal;
+}
 
+function CustomDropdown({ value, onChange, options, placeholder }) {
+  var [open,    setOpen]   = React.useState(false);
+  var [pos,     setPos]    = React.useState({ top:0, left:0, width:120 });
+  var wrapRef  = React.useRef(null);
+  var menuRef  = React.useRef(null);
+
+  // Calculate position from trigger element
   function calcPos() {
-    if (!wrapRef.current) return;
+    if (!wrapRef.current) return null;
     var r = wrapRef.current.getBoundingClientRect();
-    // Use viewport-relative coords + window scroll for fixed positioning
-    var itemH   = 36;
-    var menuH   = Math.min((options || []).length * itemH + 10, 260);
-    var below   = window.innerHeight - r.bottom;
-    var top     = below >= menuH + 8 ? r.bottom + 4 : r.top - menuH - 4;
-    setMenuPos({ top: top, left: r.left, width: r.width });
+    var opts  = options || [];
+    var menuH = Math.min(opts.length * 36 + 10, 260);
+    var top   = (window.innerHeight - r.bottom > menuH + 8)
+      ? r.bottom + 4
+      : r.top - menuH - 4;
+    return { top: Math.max(4, top), left: r.left, width: Math.max(r.width, 120) };
   }
 
-  function toggle(e) {
+  function open_menu(e) {
     e.stopPropagation();
-    if (!open) calcPos();
+    var p = calcPos();
+    if (p) setPos(p);
     setOpen(function(o) { return !o; });
   }
 
   // Close on outside click
   React.useEffect(function() {
     if (!open) return;
-    function handler(e) {
-      if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false);
+    function onDown(e) {
+      var w = wrapRef.current, m = menuRef.current;
+      if ((w && w.contains(e.target)) || (m && m.contains(e.target))) return;
+      setOpen(false);
     }
-    // Use capture phase + small delay so the opening click doesn't immediately close
-    var id = setTimeout(function() {
-      document.addEventListener('click', handler, true);
-    }, 10);
+    // tiny delay so the open-click doesn't immediately close
+    var t = setTimeout(function() {
+      document.addEventListener('mousedown', onDown, true);
+    }, 0);
     return function() {
-      clearTimeout(id);
-      document.removeEventListener('click', handler, true);
+      clearTimeout(t);
+      document.removeEventListener('mousedown', onDown, true);
     };
   }, [open]);
 
-  // Recalc on scroll/resize while open
+  // Reposition on scroll / resize while open
   React.useEffect(function() {
     if (!open) return;
-    function onScroll() { calcPos(); }
+    function onScroll() {
+      var p = calcPos();
+      if (p) setPos(p);
+    }
     window.addEventListener('scroll', onScroll, true);
     window.addEventListener('resize', onScroll);
     return function() {
       window.removeEventListener('scroll', onScroll, true);
       window.removeEventListener('resize', onScroll);
     };
-  }, [open, options]);
+  }, [open]);
 
   var sel = (options || []).find(function(o) {
     return (o && o.value !== undefined ? o.value : o) === value;
   });
-  var displayLabel = sel
+  var label = sel
     ? (sel.label !== undefined && sel.label !== null ? String(sel.label) : String(sel))
     : (placeholder || 'Select');
+
+  // Menu rendered via portal so parent overflow/transform can't clip it
+  var menu = open
+    ? ReactDOM.createPortal(
+        h('div', {
+          ref: menuRef,
+          className: 'custom-dropdown-menu',
+          style: { position:'fixed', top: pos.top, left: pos.left, minWidth: pos.width,
+                   zIndex: 999999, maxHeight: 260, overflowY: 'auto' },
+          onMouseDown: function(e) { e.preventDefault(); },
+        },
+          (options || []).map(function(opt, i) {
+            var optVal   = (opt && opt.value !== undefined) ? opt.value : opt;
+            var optLabel = (opt && opt.label !== undefined && opt.label !== null)
+              ? String(opt.label) : String(opt == null ? '' : opt);
+            var isSel = optVal === value;
+            return h('div', {
+              key: i,
+              className: 'custom-dropdown-item' + (isSel ? ' selected' : ''),
+              onClick: function(e) {
+                e.stopPropagation();
+                onChange(optVal);
+                setOpen(false);
+              },
+            }, optLabel);
+          })
+        ),
+        getPortal()
+      )
+    : null;
 
   return h('div', { className: 'custom-dropdown', ref: wrapRef },
     h('div', {
       className: 'custom-dropdown-trigger' + (open ? ' open' : ''),
-      onClick: toggle,
+      onClick: open_menu,
     },
-      h('span', null, displayLabel),
+      h('span', null, label),
       h('div', { className: 'custom-dropdown-arrow' })
     ),
-    open && h('div', {
-      className: 'custom-dropdown-menu',
-      style: {
-        position: 'fixed',
-        top:      menuPos.top,
-        left:     menuPos.left,
-        minWidth: menuPos.width,
-        zIndex:   999999,
-        maxHeight: 260,
-        overflowY: 'auto',
-      },
-      onClick: function(e) { e.stopPropagation(); },
-    },
-      (options || []).map(function(opt, i) {
-        var optVal   = (opt && opt.value !== undefined) ? opt.value : opt;
-        var optLabel = (opt && opt.label !== undefined && opt.label !== null)
-          ? String(opt.label) : String(opt == null ? '' : opt);
-        var isSel = optVal === value;
-        return h('div', {
-          key: i,
-          className: 'custom-dropdown-item' + (isSel ? ' selected' : ''),
-          onMouseDown: function(e) { e.preventDefault(); },
-          onClick: function() { onChange(optVal); setOpen(false); },
-        }, optLabel);
-      })
-    )
+    menu
   );
 }
 
