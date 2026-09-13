@@ -97,15 +97,20 @@ function PayoutPage() {
 
     // Send Discord notification
     if (settings && settings.discordEnabled && settings.discordWebhookUrl) {
+      var now = new Date();
+      var timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+      var remainingBal = acc.startingBalance + accTrades.reduce(function(s,t) { return s + (t.profitLoss||0); }, 0);
       var msg = [
-        'PAYOUT  ' + payoutRecord.date,
-        'Account: ' + acc.name + '  (' + acc.propFirm + ')',
-        'Gross Profit:      $' + calc.grossProfit.toFixed(2),
-        'Your Split (' + (acc.profitSplit || 90) + '%): $' + calc.grossPayout.toFixed(2),
-        'Tax (' + taxRate + '%):         -$' + calc.taxAmt.toFixed(2),
-        'Buffer:            -$40.00',
-        'You Take Home:     $' + calc.available.toFixed(2),
-        'New Cycle Start:   $' + newCycleStart.toLocaleString(),
+        '===  PAYOUT REQUEST  ===',
+        'Account  : ' + acc.name + ' (' + acc.propFirm + ')',
+        'Date     : ' + payoutRecord.date + '  ' + timeStr,
+        '------------------------',
+        'Payout   : $' + calc.available.toFixed(2) + ' (after tax + buffer)',
+        'Tax      : -$' + calc.taxAmt.toFixed(2) + ' (' + taxRate + '%)',
+        'Buffer   : -$40.00',
+        '------------------------',
+        'Balance  : $' + remainingBal.toFixed(2),
+        'New Cycle: $' + newCycleStart.toFixed(2),
       ].join('\n');
       fetch(settings.discordWebhookUrl, {
         method: 'POST',

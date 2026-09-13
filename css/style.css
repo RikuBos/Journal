@@ -131,6 +131,11 @@ body::before {
   flex-direction: column;
   z-index: 100;
   transition: width var(--duration) var(--ease), min-width var(--duration) var(--ease);
+  /* Own compositing layer — prevents hover repaints bleeding into main-content */
+  will-change: width;
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+  contain: layout style;
 }
 .sidebar.collapsed { width: 60px; min-width: 60px; }
 
@@ -203,8 +208,11 @@ body::before {
   color: var(--t3);
   font-size: 13px; font-weight: 400;
   white-space: nowrap; overflow: hidden;
-  transition: all var(--duration) var(--ease);
+  transition: background var(--duration) var(--ease), color var(--duration) var(--ease);
   position: relative;
+  isolation: isolate;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
 }
 .nav-item:hover {
   color: var(--t2);
@@ -260,6 +268,10 @@ body::before {
   flex: 1; min-height: 100vh;
   transition: margin-left var(--duration) var(--ease);
   display: flex; flex-direction: column;
+  /* Own layer so sidebar repaints don't affect it */
+  isolation: isolate;
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
 }
 .main-content.expanded { margin-left: 60px; }
 

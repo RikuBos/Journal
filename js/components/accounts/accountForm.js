@@ -138,8 +138,8 @@ function AccountForm({ account, onSave, onClose }) {
     // Account name
     inp('Account Name', name, setName, { placeholder: 'e.g. FundedNext $25K' }),
 
-    // Firm + Type row
-    h('div', { className: 'form-row', style: { gap: 12 } },
+    // Firm + Type + Phase in one row (3 columns)
+    h('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 } },
       h('div', { className: 'input-group' },
         h('label', { className: 'input-label' }, 'Prop Firm'),
         h(UI.CustomDropdown, {
@@ -156,51 +156,51 @@ function AccountForm({ account, onSave, onClose }) {
           }),
         })
       ),
+      h('div', { className: 'input-group' },
+        h('label', { className: 'input-label' }, 'Phase'),
+        h(UI.CustomDropdown, {
+          value: phase, onChange: setPhase,
+          options: (function() {
+            var opts = [];
+            if (modelData && modelData.phases >= 2) {
+              opts.push({ value: 'Phase 1', label: 'Phase 1' });
+              opts.push({ value: 'Phase 2', label: 'Phase 2' });
+            } else if (modelData && modelData.phases === 1) {
+              opts.push({ value: 'Phase 1', label: 'Phase 1' });
+            }
+            opts.push({ value: 'Funded', label: 'Funded' });
+            return opts;
+          })(),
+          placeholder: 'Select phase',
+        })
+      ),
     ),
 
-    // Phase — below Type, before Model
-    h('div', { className: 'input-group' },
-      h('label', { className: 'input-label' }, 'Phase'),
-      h(UI.CustomDropdown, {
-        value: phase, onChange: setPhase,
-        options: (function() {
-          var opts = [];
-          if (modelData && modelData.phases >= 2) {
-            opts.push({ value: 'Phase 1', label: 'Phase 1' });
-            opts.push({ value: 'Phase 2', label: 'Phase 2' });
-          } else if (modelData && modelData.phases === 1) {
-            opts.push({ value: 'Phase 1', label: 'Phase 1' });
-          }
-          opts.push({ value: 'Funded', label: 'Funded' });
-          return opts;
-        })(),
-        placeholder: 'Select phase',
-      })
+
+
+    // Model + Size row
+    h('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 } },
+      h('div', { className: 'input-group' },
+        h('label', { className: 'input-label' }, 'Account Model'),
+        h(UI.CustomDropdown, {
+          value: modelName, onChange: setModel,
+          placeholder: 'Select model',
+          options: models.map(function(m) { return { value: m, label: m }; }),
+        })
+      ),
+      h('div', { className: 'input-group' },
+        h('label', { className: 'input-label' }, 'Account Size'),
+        h(UI.CustomDropdown, {
+          value: size || '',
+          onChange: function(v) { setSize(Number(v)); },
+          placeholder: modelName ? 'Select size' : '—',
+          options: sizes.map(function(s) { return { value: s, label: '$' + s.toLocaleString() }; }),
+        })
+      ),
     ),
 
-    // Model selector
-    h('div', { className: 'input-group' },
-      h('label', { className: 'input-label' }, 'Account Model'),
-      h(UI.CustomDropdown, {
-        value: modelName, onChange: setModel,
-        placeholder: 'Select model',
-        options: models.map(function(m) { return { value: m, label: m }; }),
-      })
-    ),
-
-    // Size selector
-    modelName && h('div', { className: 'input-group' },
-      h('label', { className: 'input-label' }, 'Account Size'),
-      h(UI.CustomDropdown, {
-        value: size || '',
-        onChange: function(v) { setSize(Number(v)); },
-        placeholder: 'Select size',
-        options: sizes.map(function(s) { return { value: s, label: '$' + s.toLocaleString() }; }),
-      })
-    ),
-
-    // Profit Split + Cycle Type row
-    h('div', { className: 'form-row', style: { gap: 12 } },
+    // Profit Split + Cycle Type + Status row (3 cols)
+    h('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 } },
       h('div', { className: 'input-group' },
         h('label', { className: 'input-label' }, 'Profit Split'),
         h(UI.CustomDropdown, {
@@ -216,6 +216,13 @@ function AccountForm({ account, onSave, onClose }) {
             { value: 'on_demand', label: 'On Demand' },
             { value: '14_day',   label: '14 Day' },
           ],
+        })
+      ),
+      h('div', { className: 'input-group' },
+        h('label', { className: 'input-label' }, 'Status'),
+        h(UI.CustomDropdown, {
+          value: status, onChange: setStatus,
+          options: ['Active','Passed','Failed','Archived'].map(function(s) { return { value: s, label: s }; }),
         })
       ),
     ),
@@ -247,14 +254,7 @@ function AccountForm({ account, onSave, onClose }) {
       )
     ) : null,
 
-    // Status
-    h('div', { className: 'input-group' },
-      h('label', { className: 'input-label' }, 'Account Status'),
-      h(UI.CustomDropdown, {
-        value: status, onChange: setStatus,
-        options: ['Active','Passed','Failed','Archived'].map(function(s) { return { value: s, label: s }; }),
-      })
-    ),
+
 
     // Footer
     h('div', { style: { display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 8 } },

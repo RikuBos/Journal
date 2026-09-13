@@ -97,6 +97,27 @@ function TradeForm({ trade, onSave, onClose }) {
   const set = (k, v) => setF(p => ({ ...p, [k]: v }));
 
   // Auto-calcs
+  // Auto-calculate position size from risk% + entry/SL
+  var autoPositionSize = useFM(function() {
+    if (!f.entryPrice || !f.stopLoss || !f.riskPercentage || !activeAccount) return null;
+    var bal     = activeAccount.startingBalance || 0;
+    var riskAmt = bal * (+f.riskPercentage / 100);
+    var pts     = Math.abs(+f.entryPrice - +f.stopLoss);
+    var pv      = getPointValue(f.instrument);
+    if (!pts || !pv) return null;
+    var sz = riskAmt / (pts * pv);
+    return Math.round(sz * 100) / 100; // 2 decimal places
+  }, [f.entryPrice, f.stopLoss, f.riskPercentage, f.instrument, activeAccount]);
+
+  // Auto-fill position size when calculated and field is empty
+  var prevAutoSz = React.useRef(null);
+  React.useEffect(function() {
+    if (autoPositionSize && autoPositionSize !== prevAutoSz.current) {
+      prevAutoSz.current = autoPositionSize;
+      set('positionSize', autoPositionSize);
+    }
+  }, [autoPositionSize]);
+
   var autoRisk = useFM(function() {
     if (!f.entryPrice || !f.stopLoss || !f.positionSize) return null;
     return Calc.pointRisk(+f.entryPrice, +f.stopLoss, +f.positionSize, f.instrument);
