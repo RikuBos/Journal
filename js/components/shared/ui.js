@@ -247,56 +247,94 @@ function showContextMenu(e, items) {
 
 // ── CUSTOM DROPDOWN ────────────────────────────────────────
 function CustomDropdown({ value, onChange, options, placeholder }) {
-  var [open, setOpen] = React.useState(false);
-  var [menuStyle, setMenuStyle] = React.useState({});
-  var triggerRef = React.useRef(null);
+  var [open, setOpen]     = React.useState(false);
+  var [menuPos, setMenuPos] = React.useState({ top: 0, left: 0, width: 120 });
+  var wrapRef = React.useRef(null);
 
-  React.useEffect(function() {
-    function close(e) {
-      if (triggerRef.current && !triggerRef.current.contains(e.target)) setOpen(false);
-    }
-    document.addEventListener('mousedown', close);
-    return function() { document.removeEventListener('mousedown', close); };
-  }, []);
+  function calcPos() {
+    if (!wrapRef.current) return;
+    var r = wrapRef.current.getBoundingClientRect();
+    // Use viewport-relative coords + window scroll for fixed positioning
+    var itemH   = 36;
+    var menuH   = Math.min((options || []).length * itemH + 10, 260);
+    var below   = window.innerHeight - r.bottom;
+    var top     = below >= menuH + 8 ? r.bottom + 4 : r.top - menuH - 4;
+    setMenuPos({ top: top, left: r.left, width: r.width });
+  }
 
-  function handleOpen() {
-    if (!triggerRef.current) return;
-    var rect = triggerRef.current.getBoundingClientRect();
-    var menuH = Math.min((options || []).length * 36 + 8, 280);
-    var spaceBelow = window.innerHeight - rect.bottom;
-    var top = spaceBelow > menuH ? rect.bottom + 4 : rect.top - menuH - 4;
-    setMenuStyle({ top: top, left: rect.left, minWidth: rect.width });
+  function toggle(e) {
+    e.stopPropagation();
+    if (!open) calcPos();
     setOpen(function(o) { return !o; });
   }
 
-  var selected = (options || []).find(function(o) {
+  // Close on outside click
+  React.useEffect(function() {
+    if (!open) return;
+    function handler(e) {
+      if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false);
+    }
+    // Use capture phase + small delay so the opening click doesn't immediately close
+    var id = setTimeout(function() {
+      document.addEventListener('click', handler, true);
+    }, 10);
+    return function() {
+      clearTimeout(id);
+      document.removeEventListener('click', handler, true);
+    };
+  }, [open]);
+
+  // Recalc on scroll/resize while open
+  React.useEffect(function() {
+    if (!open) return;
+    function onScroll() { calcPos(); }
+    window.addEventListener('scroll', onScroll, true);
+    window.addEventListener('resize', onScroll);
+    return function() {
+      window.removeEventListener('scroll', onScroll, true);
+      window.removeEventListener('resize', onScroll);
+    };
+  }, [open, options]);
+
+  var sel = (options || []).find(function(o) {
     return (o && o.value !== undefined ? o.value : o) === value;
   });
-  var displayLabel = selected
-    ? (selected.label !== undefined && selected.label !== null ? selected.label : selected)
+  var displayLabel = sel
+    ? (sel.label !== undefined && sel.label !== null ? String(sel.label) : String(sel))
     : (placeholder || 'Select');
 
-  return h('div', { className: 'custom-dropdown', ref: triggerRef },
+  return h('div', { className: 'custom-dropdown', ref: wrapRef },
     h('div', {
       className: 'custom-dropdown-trigger' + (open ? ' open' : ''),
-      onClick: handleOpen,
+      onClick: toggle,
     },
       h('span', null, displayLabel),
       h('div', { className: 'custom-dropdown-arrow' })
     ),
     open && h('div', {
       className: 'custom-dropdown-menu',
-      style: menuStyle,
+      style: {
+        position: 'fixed',
+        top:      menuPos.top,
+        left:     menuPos.left,
+        minWidth: menuPos.width,
+        zIndex:   999999,
+        maxHeight: 260,
+        overflowY: 'auto',
+      },
+      onClick: function(e) { e.stopPropagation(); },
     },
       (options || []).map(function(opt, i) {
         var optVal   = (opt && opt.value !== undefined) ? opt.value : opt;
-        var optLabel = (opt && opt.label !== undefined && opt.label !== null) ? opt.label : opt;
-        var isSel    = optVal === value;
+        var optLabel = (opt && opt.label !== undefined && opt.label !== null)
+          ? String(opt.label) : String(opt == null ? '' : opt);
+        var isSel = optVal === value;
         return h('div', {
           key: i,
           className: 'custom-dropdown-item' + (isSel ? ' selected' : ''),
+          onMouseDown: function(e) { e.preventDefault(); },
           onClick: function() { onChange(optVal); setOpen(false); },
-        }, optLabel || h('span', { style:{ color:'var(--t4)', fontStyle:'italic' } }, 'None'));
+        }, optLabel);
       })
     )
   );

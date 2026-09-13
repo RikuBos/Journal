@@ -94,10 +94,19 @@ function DashboardPage() {
           cls: totalPL >= 0 ? 'positive' : 'negative',
           sub: profitPct.toFixed(2) + '% account',
         }),
-        h(StatBlock, {
-          label: 'Profit Target',
-          value: Calc.fmt.currency(activeAccount.profitTarget),
-          sub: `${Calc.fmt.currency(Math.max(0, activeAccount.profitTarget - Math.max(0, totalPL)))} remaining`,
+        activeAccount.phase !== 'Funded' && h(StatBlock, {
+          label: activeAccount.phase === 'Phase 2' ? 'Phase 2 Target' : 'Phase 1 Target',
+          value: Calc.fmt.currency(
+            activeAccount.phase === 'Phase 2'
+              ? (activeAccount.phase2Target || activeAccount.profitTarget)
+              : (activeAccount.phase1Target || activeAccount.profitTarget)
+          ),
+          sub: Calc.fmt.currency(Math.max(0,
+            (activeAccount.phase === 'Phase 2'
+              ? (activeAccount.phase2Target || activeAccount.profitTarget)
+              : (activeAccount.phase1Target || activeAccount.profitTarget))
+            - Math.max(0, totalPL)
+          )) + ' remaining',
           progressPct: targetProgress,
           progressColor: targetProgress >= 100 ? 'green' : 'blue',
         }),
