@@ -135,11 +135,11 @@ function AccountForm({ account, onSave, onClose }) {
   };
 
   return h('div', null,
-    // Account name
-    inp('Account Name', name, setName, { placeholder: 'e.g. FundedNext $25K' }),
+    // Row 0: Account Name (full width)
+    inp('Account Name', name, setName, { placeholder: 'e.g. My FundedNext $5K' }),
 
-    // Firm + Type + Phase in one row (3 columns)
-    h('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 } },
+    // Row 1: Prop Firm | Type | Account Size
+    h('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0 14px' } },
       h('div', { className: 'input-group' },
         h('label', { className: 'input-label' }, 'Prop Firm'),
         h(UI.CustomDropdown, {
@@ -154,6 +154,27 @@ function AccountForm({ account, onSave, onClose }) {
           options: instrTypes.map(function(t) {
             return { value: t, label: t === 'cfd' ? 'CFD' : 'Futures' };
           }),
+        })
+      ),
+      h('div', { className: 'input-group' },
+        h('label', { className: 'input-label' }, 'Account Size'),
+        h(UI.CustomDropdown, {
+          value: size || '',
+          onChange: function(v) { setSize(Number(v)); },
+          placeholder: modelName ? 'Select size' : '—',
+          options: sizes.map(function(s) { return { value: s, label: '$' + s.toLocaleString() }; }),
+        })
+      ),
+    ),
+
+    // Row 2: Account Model | Phase
+    h('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 14px' } },
+      h('div', { className: 'input-group' },
+        h('label', { className: 'input-label' }, 'Account Model'),
+        h(UI.CustomDropdown, {
+          value: modelName, onChange: setModel,
+          placeholder: 'Select model',
+          options: models.map(function(m) { return { value: m, label: m }; }),
         })
       ),
       h('div', { className: 'input-group' },
@@ -176,31 +197,8 @@ function AccountForm({ account, onSave, onClose }) {
       ),
     ),
 
-
-
-    // Model + Size row
-    h('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 } },
-      h('div', { className: 'input-group' },
-        h('label', { className: 'input-label' }, 'Account Model'),
-        h(UI.CustomDropdown, {
-          value: modelName, onChange: setModel,
-          placeholder: 'Select model',
-          options: models.map(function(m) { return { value: m, label: m }; }),
-        })
-      ),
-      h('div', { className: 'input-group' },
-        h('label', { className: 'input-label' }, 'Account Size'),
-        h(UI.CustomDropdown, {
-          value: size || '',
-          onChange: function(v) { setSize(Number(v)); },
-          placeholder: modelName ? 'Select size' : '—',
-          options: sizes.map(function(s) { return { value: s, label: '$' + s.toLocaleString() }; }),
-        })
-      ),
-    ),
-
-    // Profit Split + Cycle Type + Status row (3 cols)
-    h('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 } },
+    // Row 3: Profit Split | Cycle Type | Status
+    h('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0 14px' } },
       h('div', { className: 'input-group' },
         h('label', { className: 'input-label' }, 'Profit Split'),
         h(UI.CustomDropdown, {
@@ -227,23 +225,22 @@ function AccountForm({ account, onSave, onClose }) {
       ),
     ),
 
-    // Auto-filled rules preview (only when model+size selected)
-    modelData && size ? h('div', { style: { background: 'rgba(191,219,254,0.05)', border: '1px solid rgba(191,219,254,0.10)', borderRadius: 10, padding: 14, marginBottom: 14 } },
+    // Auto-filled rules preview
+    modelData && size ? h('div', { style: { background: 'rgba(191,219,254,0.04)', border: '1px solid rgba(191,219,254,0.10)', borderRadius: 10, padding: '12px 14px', marginBottom: 14 } },
       h('div', { style: { fontSize: 10.5, fontWeight: 600, color: 'var(--t3)', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 10 } }, 'Auto-filled Rules'),
-      h('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2px 20px' } },
+      h('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2px 24px' } },
         (function() {
-          var sd  = modelData.sizeData;
+          var sd = modelData.sizeData;
           var rows = [
-            ['Drawdown Type',  modelData.drawdownType],
-            ['Max Loss',       sd.maxLoss    ? '$' + sd.maxLoss.toLocaleString()    : '—'],
-            ['Daily Loss',     sd.dailyLoss  ? '$' + sd.dailyLoss.toLocaleString()  : 'None'],
-            ['Reward Share',   modelData.rewardShare + '%'],
-            ['Consistency',    modelData.consistencyRule ? modelData.consistencyRule + '%' : 'None'],
+            ['Drawdown Type', modelData.drawdownType],
+            ['Max Loss',      sd.maxLoss    ? '$' + sd.maxLoss.toLocaleString()   : '—'],
+            ['Daily Loss',    sd.dailyLoss  ? '$' + sd.dailyLoss.toLocaleString() : 'None'],
+            ['Reward Share',  modelData.rewardShare + '%'],
+            ['Consistency',   modelData.consistencyRule ? modelData.consistencyRule + '%' : 'None'],
           ];
-          // Show phase-specific target
           if (phase === 'Phase 1') rows.push(['Phase 1 Target', sd.phase1Target ? '$' + sd.phase1Target.toLocaleString() : (sd.profitTarget ? '$' + sd.profitTarget.toLocaleString() : '—')]);
-          if (phase === 'Phase 2') rows.push(['Phase 2 Target', sd.phase2Target ? '$' + sd.phase2Target.toLocaleString() : '—']);
-          if (sd.contractLimit)    rows.push(['Contract Limit', sd.contractLimit]);
+          else if (phase === 'Phase 2') rows.push(['Phase 2 Target', sd.phase2Target ? '$' + sd.phase2Target.toLocaleString() : '—']);
+          if (sd.contractLimit) rows.push(['Contract Limit', sd.contractLimit]);
           return rows.map(function(pair, i) {
             return h('div', { key: i, style: { display: 'flex', justifyContent: 'space-between', padding: '3px 0', borderBottom: '1px solid rgba(255,255,255,0.04)', fontSize: 12 } },
               h('span', { style: { color: 'var(--t3)' } }, pair[0]),
@@ -254,12 +251,10 @@ function AccountForm({ account, onSave, onClose }) {
       )
     ) : null,
 
-
-
     // Footer
-    h('div', { style: { display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 8 } },
+    h('div', { style: { display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 4 } },
       h('button', { className: 'btn btn-secondary', onClick: onClose }, 'Cancel'),
-      h('button', { className: 'btn btn-primary', onClick: handleSave }, account ? 'Update Account' : 'Create Account')
+      h('button', { className: 'btn btn-primary',   onClick: handleSave }, account ? 'Update Account' : 'Create Account')
     )
   );
 }

@@ -23,10 +23,11 @@ function PayoutPage() {
   // Payout calculations
   var calc = React.useMemo(function() {
     if (!acc) return null;
-    var startBal    = acc.cycleStartBalance || acc.startingBalance || 0;
     var rawBalance  = acc.startingBalance + accTrades.reduce(function(s,t) { return s + (t.profitLoss||0); }, 0);
     var currentBal  = rawBalance;
-    // Gross profit is profit since the cycle start
+    // cycleStartBalance = rawBalance at time of last payout
+    // grossProfit = profit made SINCE last payout (new trades only)
+    var startBal    = acc.cycleStartBalance || acc.startingBalance || 0;
     var grossProfit = Math.max(0, currentBal - startBal);
     var split       = (acc.profitSplit || profitSplit) / 100;
     var buffer      = 40; // $40 buffer to keep in account
@@ -53,7 +54,7 @@ function PayoutPage() {
 
     // Growth requirement: need 2% above cycle start
     var isOnDemand      = !acc.cycleType || acc.cycleType === 'on_demand';
-    var growthRequired  = isOnDemand ? startBal * 0.02 : 0; // 14-day: no growth req
+    var growthRequired  = isOnDemand ? startBal * 0.02 : 0;
     var growthMet       = isOnDemand ? grossProfit >= growthRequired : grossProfit > 0;
     var growthRemaining = Math.max(0, growthRequired - grossProfit);
 
@@ -85,8 +86,8 @@ function PayoutPage() {
     var history      = (acc.payoutHistory || []).concat(payoutRecord);
     var totalPayouts = (acc.totalPayouts || 0) + calc.available;
 
-    // Cycle reset: starting balance + $40 buffer
-    var newCycleStart = acc.startingBalance + 40;
+    // Set cycle start to CURRENT rawBalance so next cycle profit starts at 0
+    var newCycleStart = rawBalance; // after payout, new profit starts from here
 
     await upsertAccount(Object.assign({}, acc, {
       totalPayouts:      totalPayouts,
