@@ -86,8 +86,8 @@ function PayoutPage() {
     var history      = (acc.payoutHistory || []).concat(payoutRecord);
     var totalPayouts = (acc.totalPayouts || 0) + calc.available;
 
-    // Set cycle start to CURRENT rawBalance so next cycle profit starts at 0
-    var newCycleStart = rawBalance; // after payout, new profit starts from here
+    // Set cycle start to current balance so next cycle profit starts at 0
+    var newCycleStart = calc.currentBal; // currentBal = rawBalance from calc
 
     await upsertAccount(Object.assign({}, acc, {
       totalPayouts:      totalPayouts,
@@ -100,7 +100,7 @@ function PayoutPage() {
     if (settings && settings.discordEnabled && settings.discordWebhookUrl) {
       var now = new Date();
       var timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
-      var remainingBal = acc.startingBalance + accTrades.reduce(function(s,t) { return s + (t.profitLoss||0); }, 0);
+      var remainingBal = calc.currentBal;
       var msg = [
         '===  PAYOUT REQUEST  ===',
         'Account  : ' + acc.name + ' (' + acc.propFirm + ')',
