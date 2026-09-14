@@ -167,9 +167,9 @@ function AccountForm({ account, onSave, onClose }) {
       ),
     ),
 
-    // Row 2: Account Model (2/3) | Phase (1/3)
-    h('div', { style: { display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '0 14px' } },
-      h('div', { className: 'input-group' },
+    // Row 2: Account Model (col 1+2) | Phase (col 3) — same 3-col grid as rows 1&3
+    h('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0 14px' } },
+      h('div', { className: 'input-group', style: { gridColumn: 'span 2' } },
         h('label', { className: 'input-label' }, 'Account Model'),
         h(UI.CustomDropdown, {
           value: modelName, onChange: setModel,
