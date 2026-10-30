@@ -96,7 +96,7 @@ function DiscordSettings({ settings, onChange }) {
           setLocalUrl(trimmed);
           if (trimmed) { set('discordWebhookUrl', trimmed); showSaved(); }
         },
-        style: { fontFamily:'var(--mono)', fontSize:11.5 },
+        style: { fontFamily:'ui-monospace, Menlo, Consolas, monospace', fontSize:11.5 },
       }),
       h('div', { className:'input-hint', style: { display:'flex', alignItems:'center', gap:8 } },
         'Server Settings → Integrations → Webhooks → Copy Webhook URL',

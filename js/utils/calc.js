@@ -289,3 +289,11 @@ var Calc = {
 };
 
 window.Calc = Calc;
+
+// Account balance: starting balance + trade P/L - withdrawals
+function accountBalance(acc, totalPL) {
+  if (!acc) return 0;
+  var b = (acc.startingBalance || 0) + (totalPL || 0);
+  return b - (acc.totalWithdrawn || 0);
+}
+window.accountBalance = accountBalance;

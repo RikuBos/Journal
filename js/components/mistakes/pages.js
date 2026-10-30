@@ -577,6 +577,48 @@ function JournalPage() {
 // ============================================================
 // SETTINGS PAGE
 // ============================================================
+// ── PAYOUT BUFFER — one value per account, saved on the account record ──
+function BufferRow({ acc, onSave }) {
+  var saved = acc.bufferAmount !== undefined && acc.bufferAmount !== null ? acc.bufferAmount : 40;
+  var [val, setVal] = React.useState(String(saved));
+  React.useEffect(function() { setVal(String(saved)); }, [saved]);
+  return h('div', { style: { display: 'flex', alignItems: 'center', gap: 16, padding: '12px 0', borderBottom: '1px solid var(--border-1)' } },
+    h('div', { style: { flex: 1, minWidth: 0 } },
+      h('div', { style: { fontSize: 13.5, fontWeight: 600, color: 'var(--t1)' } }, acc.name),
+      h('div', { style: { fontSize: 11.5, color: 'var(--t3)', marginTop: 2 } },
+        acc.propFirm + '   ' + (acc.modelName || '') + (acc.startingBalance ? '   $' + acc.startingBalance.toLocaleString() : ''))
+    ),
+    h('div', { style: { width: 150 } },
+      h('input', { className: 'input-field', type: 'number', min: 0, step: 'any', value: val,
+        onChange: function(e) { setVal(e.target.value); },
+        onBlur: function() {
+          var n = parseFloat(val);
+          if (isNaN(n) || n < 0) { setVal(String(saved)); return; }
+          if (n !== saved) onSave(acc, n);
+        } })
+    )
+  );
+}
+
+function PayoutBufferSettings() {
+  var { accounts, upsertAccount } = useApp();
+  var propAccounts = accounts.filter(function(a) { return !a.isBroker; });
+  async function save(acc, n) {
+    await upsertAccount(Object.assign({}, acc, { bufferAmount: n }));
+    UI.toast('Buffer ' + acc.name + ' saved', 'success');
+  }
+  return h('div', { className: 'glass-card', style: { maxWidth: 640 } },
+    h('div', { className: 'card-header' }, h('span', { className: 'card-title' }, 'Payout Buffer')),
+    h('div', { className: 'card-body' },
+      h('div', { className: 'input-hint', style: { marginBottom: 6 } },
+        'Saldo yang ditinggal di akun saat payout. Diatur per akun (USD), default 40. Tersimpan otomatis saat kolom ditinggalkan.'),
+      propAccounts.length === 0
+        ? h('div', { style: { fontSize: 13, color: 'var(--t3)', padding: '16px 0' } }, 'Belum ada akun prop firm.')
+        : propAccounts.map(function(a) { return h(BufferRow, { key: a.id, acc: a, onSave: save }); })
+    )
+  );
+}
+
 function SettingsPage() {
   const { settings, saveSettings, exportData, importData, resetData, mistakes } = useApp();
   const [f,            setF]    = React.useState({ ...DEFAULT_SETTINGS });
@@ -642,7 +684,7 @@ function SettingsPage() {
         h(UI.Icon, { name: 'check', size: 12 }), 'Auto-saving')
     ),
     h('div', { className: 'page-tabs' },
-      [{ id:'general', label:'General' }, { id:'trading', label:'Trading Concepts' }, { id:'data', label:'Data Management' }, { id:'discord', label:'Discord Webhook' }].map(t =>
+      [{ id:'general', label:'General' }, { id:'trading', label:'Trading Concepts' }, { id:'payout', label:'Payout' }, { id:'data', label:'Data Management' }, { id:'discord', label:'Discord Webhook' }].map(t =>
         h('div', { key: t.id, className: `page-tab ${tab === t.id ? 'active' : ''}`, onClick: () => setTab(t.id) }, t.label)
       )
     ),
@@ -689,6 +731,7 @@ function SettingsPage() {
         )
       ),
 
+      tab === 'payout' && h(PayoutBufferSettings),
       tab === 'data' && h('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, alignItems: 'flex-start' } },
         h('div', { className: 'glass-card' },
           h('div', { className: 'card-header' }, h('span', { className: 'card-title' }, 'Export & Backup')),

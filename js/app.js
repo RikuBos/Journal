@@ -92,14 +92,12 @@ function App() {
   );
 }
 
-// Root render
+// Root render — AuthGate mounts the existing app only after login.
 var root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
   h(UI.ToastProvider, null,
     h(UI.ContextMenuProvider, null,
-      h(AppProvider, null,
-        h(App)
-      )
+      h(AuthGate)
     )
   )
 );

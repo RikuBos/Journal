@@ -15,7 +15,7 @@ function AccountsPage() {
     const targPct   = acc.profitTarget > 0 ? (Math.max(0, totalPL) / acc.profitTarget) * 100 : 0;
     const ddAmt     = Math.abs(Math.min(0, totalPL));
     const ddPct     = acc.maxLoss > 0 ? (ddAmt / acc.maxLoss) * 100 : 0;
-    return { totalPL, balance: acc.startingBalance + totalPL, targPct, ddPct, ddAmt, count: accTrades.length, winRate: accTrades.length ? wins/accTrades.length*100 : 0 };
+    return { totalPL, balance: accountBalance(acc, totalPL), targPct, ddPct, ddAmt, count: accTrades.length, winRate: accTrades.length ? wins/accTrades.length*100 : 0 };
   };
 
   const handleSave = async (acc) => { await upsertAccount(acc); UI.toast(acc.id ? 'Account updated' : 'Account created', 'success'); };
@@ -59,8 +59,8 @@ function AccountsPage() {
                     h('div', { style: { fontSize: 10, color: 'var(--t3)', marginTop: 2 } }, `Started: ${Calc.fmt.currency(acc.startingBalance)}`)
                   )
                 ),
-                // Progress bars
-                h('div', { style: { marginBottom: 12 } },
+                // Progress bars (not for broker accounts)
+                !acc.isBroker && h('div', { style: { marginBottom: 12 } },
                   h('div', { style: { display: 'flex', justifyContent: 'space-between', fontSize: 10.5, color: 'var(--t3)', marginBottom: 4 } },
                     h('span', null,
                       acc.phase === 'Phase 2' ? 'Phase 2 Target' : 

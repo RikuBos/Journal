@@ -3,7 +3,7 @@
    UI: Notion-inspired editorial layout + Liquid Glass dark
    ============================================================ */
 
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap');
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -56,7 +56,7 @@
 
   /* ── Font ── */
   --font: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
-  --mono: 'IBM Plex Mono', 'Fira Code', monospace;
+  --mono: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
 
   /* ── Radius ── */
   --r1: 6px;
@@ -883,7 +883,7 @@ table.data-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
   border: 1px solid rgba(255,255,255,0.12) !important;
   border-radius: 8px !important;
   color: rgba(255,255,255,0.9) !important;
-  font-family: 'IBM Plex Mono', monospace !important;
+  font-family: 'Plus Jakarta Sans', sans-serif !important;
   font-size: 12px !important;
   box-shadow: 0 8px 32px rgba(0,0,0,0.5) !important;
 }
@@ -1242,3 +1242,52 @@ input[type=date]::-webkit-calendar-picker-indicator:hover {
 .nav-item { pointer-events: all; }
 /* Override browser default tooltip for title attribute */
 .nav-item[title] { -webkit-user-select: none; }
+
+/* ── ANGKA: font utama + tabular figures (tanpa font mono) ── */
+body { font-variant-numeric: tabular-nums; }
+.stat-value, .metric-val, .info-val, .data-table td, .cal-day-pl, .calc-display .value,
+.progress-row-value, .progress-row-range span, .text-mono, .account-chip-bal {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+  letter-spacing: 0;
+}
+.stat-value { font-size: 22px; font-weight: 700; letter-spacing: -0.2px; }
+.data-table td { font-size: 12.5px; }
+
+/* ── SPACING: lebih lega ── */
+.grid-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 20px; }
+.grid-2, .grid-3, .grid-4 { gap: 20px; }
+.grid-5 { gap: 16px; }
+.mb-16 { margin-bottom: 20px; }
+.mb-24 { margin-bottom: 24px; }
+.card-header { padding: 16px 22px 14px; }
+.card-body { padding: 18px 22px; }
+.stat-block { padding: 20px 22px; }
+.stat-label { margin-bottom: 10px; }
+.stat-sub { margin-top: 6px; }
+.metric-row { padding: 11px 0; }
+.metric-row:first-child { padding-top: 4px !important; }
+.metric-row:last-child  { padding-bottom: 4px !important; }
+@media (min-width: 901px) {
+  .page-header { padding: 36px 36px 0; }
+  .page-body   { padding: 24px 36px 56px; }
+  .page-tabs   { padding: 0 36px; }
+}
+
+/* ── Supabase Auth UI (isolated; existing dashboard styles untouched) ── */
+.auth-screen{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;background:var(--bg,#080d18);color:var(--t1,#f8fafc);font-family:var(--font,Inter,sans-serif)}
+.auth-card{width:min(100%,390px);padding:32px;border:1px solid var(--border-1,rgba(255,255,255,.1));border-radius:18px;background:var(--surface-1,#101827);box-shadow:0 24px 80px rgba(0,0,0,.35);display:flex;flex-direction:column;gap:12px}
+.auth-brand{width:42px;height:42px;border-radius:12px;background:linear-gradient(140deg,var(--accent,#5b8dee),var(--accent-2,#8b5cf6));display:flex;align-items:center;justify-content:center;font-weight:800;color:#fff}
+.auth-card h2{margin:8px 0 0;font-size:23px;color:var(--t1,#fff)}
+.auth-card p{margin:0 0 10px;color:var(--t3,#94a3b8);font-size:13px}
+.auth-card label{font-size:12px;color:var(--t2,#cbd5e1);margin-top:5px}
+.auth-card input{width:100%;box-sizing:border-box;padding:12px 13px;border-radius:9px;border:1px solid var(--border-1,rgba(255,255,255,.14));background:rgba(255,255,255,.04);color:var(--t1,#fff);outline:none}
+.auth-card input:focus{border-color:var(--accent,#5b8dee)}
+.auth-submit{width:100%;justify-content:center;margin-top:8px}
+.auth-switch{border:0;background:transparent;color:var(--accent,#8bafff);cursor:pointer;padding:8px;font-size:12px}
+.auth-error,.auth-message{font-size:12px;padding:10px;border-radius:8px;overflow-wrap:anywhere}
+.auth-error{color:#fecaca;background:rgba(239,68,68,.12)}
+.auth-message{color:#bbf7d0;background:rgba(34,197,94,.12)}
+.auth-code{font-size:12px;color:var(--accent,#8bafff);padding:10px;background:rgba(255,255,255,.05);border-radius:8px}
+.auth-userbar{position:fixed;right:18px;top:12px;z-index:1000;display:flex;align-items:center;gap:10px;padding:6px 8px 6px 12px;border:1px solid var(--border-1);border-radius:10px;background:var(--surface-1);color:var(--t2);font-size:11px;box-shadow:0 5px 20px rgba(0,0,0,.15)}
+.auth-userbar .btn{font-size:11px}

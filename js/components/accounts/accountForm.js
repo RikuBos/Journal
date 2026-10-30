@@ -37,51 +37,66 @@ function AccountForm({ account, onSave, onClose }) {
   var initSize = account ? (account.startingBalance || 0) : 0;
 
   var [firm,     setFirm]   = React.useState(initFirm);
-  var [instrType,setInstr]  = React.useState(initType);
-  var [modelName,setModel]  = React.useState(initModel);
-  var [size,     setSize]   = React.useState(initSize);
+  var [instrTypeS, setInstr] = React.useState(initType);
+  var [modelNameS, setModel] = React.useState(initModel);
+  var [sizeS,      setSize]  = React.useState(initSize);
   var [name,     setName]   = React.useState(account ? account.name : '');
   var [profitSplit, setProfitSplit] = React.useState(account ? (account.profitSplit || 90) : 90);
-  var [phase,    setPhase]  = React.useState(account ? (account.phase || 'Funded') : 'Funded');
+  var [phaseS,    setPhase]  = React.useState(account && !account.isBroker ? (account.phase || 'Funded') : 'Funded');
   var [status,   setStatus]    = React.useState(account ? (account.status || 'Active') : 'Active');
   var [cycleType, setCycleType] = React.useState(account ? (account.cycleType || 'on_demand') : 'on_demand');
+  var [kind,       setKind]      = React.useState(account && account.isBroker ? 'broker' : 'prop');
+  var [brokerBal,  setBrokerBal] = React.useState(account && account.isBroker ? String(account.startingBalance || '') : '');
 
-  // Auto-fill rules when firm/model/size changes
+  // Everything below is derived, so the dropdowns can never end up empty:
+  // an invalid type/model/size/phase falls back to the first valid option.
+  var instrTypes = getInstrTypes(firm);
+  var instrType  = instrTypes.indexOf(instrTypeS) >= 0 ? instrTypeS : (instrTypes[0] || 'cfd');
+  var models     = getModels(firm, instrType);
+  var modelName  = models.indexOf(modelNameS) >= 0 ? modelNameS : (models[0] || '');
+  var sizes      = getSizes(firm, instrType, modelName);
+  var size       = sizes.indexOf(sizeS) >= 0 ? sizeS : (sizes[0] || 0);
+
   var modelData = React.useMemo(function() {
     return getPropFirmModel(firm, modelName, size);
   }, [firm, modelName, size]);
 
-  var models = getModels(firm, instrType);
-  var sizes  = getSizes(firm, instrType, modelName);
-  var instrTypes = getInstrTypes(firm);
-
-  var [initialized, setInitialized] = React.useState(false);
-  React.useEffect(function() { setInitialized(true); }, []);
-
-  // Auto-switch instrType if firm doesn't support current
-  React.useEffect(function() {
-    if (!initialized) return; // Don't reset on first render (editing existing)
-    var types = getInstrTypes(firm);
-    if (types.length > 0 && !types.includes(instrType)) {
-      setInstr(types[0]);
-    }
-    setModel('');
-    setSize(0);
-  }, [firm]);
-
-  React.useEffect(function() {
-    if (!initialized) return;
-    setModel('');
-    setSize(0);
-  }, [instrType]);
-
-  React.useEffect(function() {
-    if (sizes.length > 0 && !sizes.includes(size)) {
-      setSize(sizes[0]);
-    }
-  }, [modelName]);
+  var phaseOpts = [];
+  if (modelData && modelData.phases >= 2) phaseOpts.push('Phase 1', 'Phase 2');
+  else if (modelData && modelData.phases === 1) phaseOpts.push('Phase 1');
+  phaseOpts.push('Funded');
+  var phase = phaseOpts.indexOf(phaseS) >= 0 ? phaseS : 'Funded';
 
   function handleSave() {
+    if (kind === 'broker') {
+      var bal = parseFloat(brokerBal);
+      if (!name.trim() || !(bal > 0)) { UI.toast('Isi nama akun dan saldo', 'error'); return; }
+      onSave({
+        id:              account ? account.id : ('acc-' + Date.now()),
+        name:            name.trim(),
+        propFirm:        'Broker',
+        isBroker:        true,
+        instrType:       '',
+        modelName:       '',
+        phase:           'Broker',
+        status:          status,
+        startingBalance: bal,
+        profitSplit:     100,
+        profitTarget: 0, phase1Target: 0, phase2Target: 0,
+        maxLoss: 0, dailyLoss: 0,
+        drawdownType: 'none', consistencyRule: null, rewardShare: 100,
+        onDemandPayout: false, bufferRule: false,
+        cycleType: 'direct',
+        isActive:        account ? account.isActive : false,
+        createdAt:       account ? account.createdAt : new Date().toISOString(),
+        totalPayouts:    account ? (account.totalPayouts || 0) : 0,
+        totalWithdrawn:  account ? (account.totalWithdrawn || 0) : 0,
+        payoutHistory:   account ? (account.payoutHistory || []) : [],
+        taxRate:         account ? (account.taxRate || 0) : 0,
+      });
+      onClose();
+      return;
+    }
     if (!name.trim() || !firm || !modelName || !size) {
       UI.toast('Fill in all required fields', 'error'); return;
     }
@@ -115,6 +130,9 @@ function AccountForm({ account, onSave, onClose }) {
       createdAt:       account ? account.createdAt : new Date().toISOString(),
       // Payout tracking
       totalPayouts:    account ? (account.totalPayouts || 0) : 0,
+      totalWithdrawn:  account ? (account.totalWithdrawn || 0) : 0,
+      bufferAmount:    account && account.bufferAmount !== undefined ? account.bufferAmount : 40,
+      taxRate:         0,
       payoutHistory:   account ? (account.payoutHistory || []) : [],
       cycleType:         cycleType,
       cycleStartBalance: account ? (account.cycleStartBalance || size) : size,
@@ -134,11 +152,45 @@ function AccountForm({ account, onSave, onClose }) {
     );
   };
 
+  var kindToggle = h('div', { className: 'input-group' },
+    h('label', { className: 'input-label' }, 'Account Kind'),
+    h('div', { className: 'toggle-group', style: { display: 'inline-flex' } },
+      h('div', { className: 'toggle-opt' + (kind === 'prop' ? ' active' : ''), onClick: function() { setKind('prop'); } }, 'Prop Firm'),
+      h('div', { className: 'toggle-opt' + (kind === 'broker' ? ' active' : ''), onClick: function() { setKind('broker'); } }, 'Broker')
+    )
+  );
+
+  if (kind === 'broker') {
+    return h('div', null,
+      kindToggle,
+      inp('Account Name', name, setName, { placeholder: 'e.g. Exness Real' }),
+      h('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0 14px' } },
+        h('div', { className: 'input-group', style: { gridColumn: 'span 2' } },
+          h('label', { className: 'input-label' }, 'Balance'),
+          h('input', { className: 'input-field', type: 'number', min: 0, step: 'any', placeholder: '0.00',
+            value: brokerBal, onChange: function(e) { setBrokerBal(e.target.value); } })
+        ),
+        h('div', { className: 'input-group' },
+          h('label', { className: 'input-label' }, 'Status'),
+          h(UI.CustomDropdown, {
+            value: status, onChange: setStatus,
+            options: ['Active','Archived'].map(function(s) { return { value: s, label: s }; }),
+          })
+        )
+      ),
+      h('div', { style: { display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 4 } },
+        h('button', { className: 'btn btn-secondary', onClick: onClose }, 'Cancel'),
+        h('button', { className: 'btn btn-primary', onClick: handleSave }, account ? 'Update Account' : 'Create Account')
+      )
+    );
+  }
+
   return h('div', null,
+    kindToggle,
     // Row 0: Account Name (full width)
     inp('Account Name', name, setName, { placeholder: 'e.g. My FundedNext $5K' }),
 
-    // Row 1: Prop Firm | Type | Account Size
+    // 3 columns: Prop Firm / Model / Split  |  Type / Cycle / Size  |  Phase / Status
     h('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0 14px' } },
       h('div', { className: 'input-group' },
         h('label', { className: 'input-label' }, 'Prop Firm'),
@@ -151,54 +203,39 @@ function AccountForm({ account, onSave, onClose }) {
         h('label', { className: 'input-label' }, 'Type'),
         h(UI.CustomDropdown, {
           value: instrType, onChange: setInstr,
-          options: instrTypes.map(function(t) {
-            return { value: t, label: t === 'cfd' ? 'CFD' : 'Futures' };
-          }),
-        })
-      ),
-      h('div', { className: 'input-group' },
-        h('label', { className: 'input-label' }, 'Account Size'),
-        h(UI.CustomDropdown, {
-          value: size || '',
-          onChange: function(v) { setSize(Number(v)); },
-          placeholder: modelName ? 'Select size' : '—',
-          options: sizes.map(function(s) { return { value: s, label: '$' + s.toLocaleString() }; }),
-        })
-      ),
-    ),
-
-    // Row 2: Account Model (col 1+2) | Phase (col 3) — same 3-col grid as rows 1&3
-    h('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0 14px' } },
-      h('div', { className: 'input-group', style: { gridColumn: 'span 2' } },
-        h('label', { className: 'input-label' }, 'Account Model'),
-        h(UI.CustomDropdown, {
-          value: modelName, onChange: setModel,
-          placeholder: 'Select model',
-          options: models.map(function(m) { return { value: m, label: m }; }),
+          options: instrTypes.map(function(t) { return { value: t, label: t === 'cfd' ? 'CFD' : 'Futures' }; }),
         })
       ),
       h('div', { className: 'input-group' },
         h('label', { className: 'input-label' }, 'Phase'),
         h(UI.CustomDropdown, {
           value: phase, onChange: setPhase,
-          options: (function() {
-            var opts = [];
-            if (modelData && modelData.phases >= 2) {
-              opts.push({ value: 'Phase 1', label: 'Phase 1' });
-              opts.push({ value: 'Phase 2', label: 'Phase 2' });
-            } else if (modelData && modelData.phases === 1) {
-              opts.push({ value: 'Phase 1', label: 'Phase 1' });
-            }
-            opts.push({ value: 'Funded', label: 'Funded' });
-            return opts;
-          })(),
-          placeholder: 'Select phase',
+          options: phaseOpts.map(function(p) { return { value: p, label: p }; }),
         })
       ),
-    ),
 
-    // Row 3: Profit Split | Cycle Type | Status
-    h('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0 14px' } },
+      h('div', { className: 'input-group' },
+        h('label', { className: 'input-label' }, 'Account Model'),
+        h(UI.CustomDropdown, {
+          value: modelName, onChange: setModel,
+          options: models.map(function(m) { return { value: m, label: m }; }),
+        })
+      ),
+      h('div', { className: 'input-group' },
+        h('label', { className: 'input-label' }, 'Cycle Type'),
+        h(UI.CustomDropdown, {
+          value: cycleType, onChange: setCycleType,
+          options: [{ value: 'on_demand', label: 'On Demand' }, { value: '14_day', label: '14 Day' }],
+        })
+      ),
+      h('div', { className: 'input-group' },
+        h('label', { className: 'input-label' }, 'Status'),
+        h(UI.CustomDropdown, {
+          value: status, onChange: setStatus,
+          options: ['Active', 'Passed', 'Failed', 'Archived'].map(function(s) { return { value: s, label: s }; }),
+        })
+      ),
+
       h('div', { className: 'input-group' },
         h('label', { className: 'input-label' }, 'Profit Split'),
         h(UI.CustomDropdown, {
@@ -207,22 +244,12 @@ function AccountForm({ account, onSave, onClose }) {
         })
       ),
       h('div', { className: 'input-group' },
-        h('label', { className: 'input-label' }, 'Cycle Type'),
+        h('label', { className: 'input-label' }, 'Account Size'),
         h(UI.CustomDropdown, {
-          value: cycleType, onChange: setCycleType,
-          options: [
-            { value: 'on_demand', label: 'On Demand' },
-            { value: '14_day',   label: '14 Day' },
-          ],
+          value: size, onChange: function(v) { setSize(Number(v)); },
+          options: sizes.map(function(s) { return { value: s, label: '$' + s.toLocaleString() }; }),
         })
-      ),
-      h('div', { className: 'input-group' },
-        h('label', { className: 'input-label' }, 'Status'),
-        h(UI.CustomDropdown, {
-          value: status, onChange: setStatus,
-          options: ['Active','Passed','Failed','Archived'].map(function(s) { return { value: s, label: s }; }),
-        })
-      ),
+      )
     ),
 
     // Auto-filled rules preview

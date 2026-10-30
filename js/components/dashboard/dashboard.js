@@ -20,7 +20,7 @@ function DashboardPage() {
   const dailyPL     = uMemo(() => Calc.dailyPL(accountTrades), [accountTrades]);
 
   const totalPL   = metrics.totalPL;
-  const balance   = activeAccount ? activeAccount.startingBalance + totalPL : 0;
+  const balance   = activeAccount ? accountBalance(activeAccount, totalPL) : 0;
   const profitPct = activeAccount ? (totalPL / activeAccount.startingBalance) * 100 : 0;
 
   const targetProgress = activeAccount && activeAccount.profitTarget > 0
@@ -50,10 +50,11 @@ function DashboardPage() {
   const dailyDDPct = activeAccount?.dailyLoss > 0 ? (ddInfo.dailyDD / activeAccount.dailyLoss) * 100 : 0;
   const ruleComply = Calc.ruleCompliance(accountTrades);
 
+  const isBroker = !!(activeAccount && activeAccount.isBroker);
   const warnings = [];
-  if (ddPct      > 70) warnings.push({ type: 'danger',  msg: `Max drawdown at ${ddPct.toFixed(0)}% of limit (${Calc.fmt.currency(ddInfo.amount)} / ${Calc.fmt.currency(activeAccount?.maxLoss)})` });
-  if (dailyDDPct > 70) warnings.push({ type: 'danger',  msg: `Daily loss at ${dailyDDPct.toFixed(0)}% of daily limit today` });
-  else if (ddPct > 40) warnings.push({ type: 'warning', msg: `Drawdown at ${ddPct.toFixed(0)}% of max — ${Calc.fmt.currency(activeAccount?.maxLoss - ddInfo.amount)} remaining` });
+  if (!isBroker && ddPct      > 70) warnings.push({ type: 'danger',  msg: `Max drawdown at ${ddPct.toFixed(0)}% of limit (${Calc.fmt.currency(ddInfo.amount)} / ${Calc.fmt.currency(activeAccount?.maxLoss)})` });
+  if (!isBroker && dailyDDPct > 70) warnings.push({ type: 'danger',  msg: `Daily loss at ${dailyDDPct.toFixed(0)}% of daily limit today` });
+  else if (!isBroker && ddPct > 40) warnings.push({ type: 'warning', msg: `Drawdown at ${ddPct.toFixed(0)}% of max — ${Calc.fmt.currency(activeAccount?.maxLoss - ddInfo.amount)} remaining` });
 
   if (!activeAccount) return h('div', { className: 'page-body', style: { paddingTop: 24 } },
     h(EmptyState, { icon: 'accounts', title: 'No account selected', desc: 'Create a funded account to start tracking your performance.', action: null })
@@ -64,7 +65,7 @@ function DashboardPage() {
     h('div', { className: 'page-header' },
       h('div', null,
         h('div', { className: 'page-title' }, 'Dashboard'),
-        h('div', { className: 'page-subtitle' }, activeAccount.propFirm + '   ' + activeAccount.name + '   ' + activeAccount.phase)
+        h('div', { className: 'page-subtitle' }, activeAccount.propFirm + '   ' + activeAccount.name + (isBroker ? '' : '   ' + activeAccount.phase))
       ),
       h('div', { style: { display: 'flex', gap: 8, alignItems: 'center' } },
         h('span', { className: `badge ${activeAccount.status === 'Active' ? 'badge-green' : activeAccount.status === 'Passed' ? 'badge-blue' : 'badge-red'}` }, activeAccount.status)
@@ -81,7 +82,7 @@ function DashboardPage() {
       ),
 
       // ── TOP KPI ROW ──
-      h('div', { className: 'grid-5 mb-16', style: { gap: 14 } },
+      h('div', { className: 'grid-stats mb-24' },
         h(StatBlock, {
           label: 'Current Balance',
           value: Calc.fmt.currency(balance),
@@ -94,7 +95,7 @@ function DashboardPage() {
           cls: totalPL >= 0 ? 'positive' : 'negative',
           sub: profitPct.toFixed(2) + '% account',
         }),
-        activeAccount.phase !== 'Funded' && h(StatBlock, {
+        !isBroker && activeAccount.phase !== 'Funded' && h(StatBlock, {
           label: activeAccount.phase === 'Phase 2' ? 'Phase 2 Target' : 'Phase 1 Target',
           value: Calc.fmt.currency(
             activeAccount.phase === 'Phase 2'
@@ -110,7 +111,7 @@ function DashboardPage() {
           progressPct: targetProgress,
           progressColor: targetProgress >= 100 ? 'green' : 'blue',
         }),
-        h(StatBlock, {
+        !isBroker && h(StatBlock, {
           label: 'Max Drawdown Used',
           value: Calc.fmt.currency(ddInfo.amount),
           cls: ddPct > 70 ? 'negative' : ddPct > 40 ? 'warning' : '',
@@ -118,7 +119,7 @@ function DashboardPage() {
           progressPct: ddPct,
           progressColor: ddPct > 70 ? 'red' : ddPct > 40 ? 'amber' : 'green',
         }),
-        h(StatBlock, {
+        !isBroker && h(StatBlock, {
           label: 'Daily Loss Used',
           value: Calc.fmt.currency(ddInfo.dailyDD),
           cls: dailyDDPct > 70 ? 'negative' : '',
@@ -129,7 +130,7 @@ function DashboardPage() {
       ),
 
       // ── CHARTS ROW ──
-      h('div', { className: 'grid-2 mb-16' },
+      h('div', { className: 'grid-2 mb-24' },
 
         // Equity Curve
         h('div', { className: 'glass-card' },
@@ -179,12 +180,12 @@ function DashboardPage() {
       ),
 
       // ── STATS GRID ──
-      h('div', { className: 'grid-3 mb-16' },
+      h('div', { className: 'grid-3 mb-24' },
 
         // Performance
         h('div', { className: 'glass-card' },
           h('div', { className: 'card-header' }, h('span', { className: 'card-title' }, 'Performance')),
-          h('div', { className: 'card-body', style: { padding: '4px 16px' } },
+          h('div', { className: 'card-body', style: { padding: '6px 22px 14px' } },
             h(MetricRow, { label: 'Total Trades',  value: metrics.totalTrades }),
             h(MetricRow, { label: 'Winning',       value: metrics.winningTrades, cls: 'text-pos' }),
             h(MetricRow, { label: 'Losing',        value: metrics.losingTrades,  cls: 'text-neg' }),
@@ -197,7 +198,7 @@ function DashboardPage() {
         // Averages
         h('div', { className: 'glass-card' },
           h('div', { className: 'card-header' }, h('span', { className: 'card-title' }, 'Averages')),
-          h('div', { className: 'card-body', style: { padding: '4px 16px' } },
+          h('div', { className: 'card-body', style: { padding: '6px 22px 14px' } },
             h(MetricRow, { label: 'Average Win',  value: Calc.fmt.currency(metrics.averageWin),  cls: 'text-pos' }),
             h(MetricRow, { label: 'Average Loss', value: Calc.fmt.currency(metrics.averageLoss), cls: 'text-neg' }),
             h(MetricRow, { label: 'Largest Win',  value: Calc.fmt.currency(metrics.largestWin),  cls: 'text-pos' }),
@@ -210,7 +211,7 @@ function DashboardPage() {
         // Streaks & Compliance
         h('div', { className: 'glass-card' },
           h('div', { className: 'card-header' }, h('span', { className: 'card-title' }, 'Streaks & Compliance')),
-          h('div', { className: 'card-body', style: { padding: '4px 16px' } },
+          h('div', { className: 'card-body', style: { padding: '6px 22px 14px' } },
             h(MetricRow, { label: 'Current Streak', value: streak.current ? (streak.current + ' ' + (streak.type === 'win' ? 'W' : 'L')) : ' ', cls: streak.type === 'win' ? 'text-pos' : streak.type === 'loss' ? 'text-neg' : '' }),
             h(MetricRow, { label: 'Best Streak',    value: `${streak.best} W`, cls: 'text-pos' }),
             h(MetricRow, { label: 'Worst Streak',   value: `${streak.worst} L`, cls: 'text-neg' }),
@@ -222,12 +223,12 @@ function DashboardPage() {
       ),
 
       // ── PROGRESS BARS ──
-      h('div', { className: 'glass-card' },
+      !isBroker && h('div', { className: 'glass-card' },
         h('div', { className: 'card-header' }, h('span', { className: 'card-title' }, 'Account Progress')),
         h('div', { className: 'card-body' },
-          h('div', { className: 'grid-3' },
-            // Profit target
-            h('div', null,
+          h('div', { className: 'grid-3', style: { gap: 28 } },
+            // Profit target (not for funded accounts)
+            activeAccount.phase !== 'Funded' && h('div', null,
               h('div', { style: { display: 'flex', justifyContent: 'space-between', marginBottom: 6, fontSize: 11, color: 'var(--t3)' } },
                 h('span', null, 'Profit Target'),
                 h('span', { style: { color: 'var(--t1)', fontFamily: 'var(--mono)' } }, `${targetProgress.toFixed(0)}%`)

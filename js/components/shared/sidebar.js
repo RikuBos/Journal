@@ -31,7 +31,7 @@ function Sidebar({ page, setPage, collapsed, setCollapsed }) {
 
   const accTrades = activeAccount ? trades.filter(t => t.accountId === activeAccount.id && t.status === 'Closed') : [];
   const totalPL   = accTrades.reduce((s, t) => s + (t.profitLoss || 0), 0);
-  const balance   = activeAccount ? activeAccount.startingBalance + totalPL : 0;
+  const balance   = activeAccount ? accountBalance(activeAccount, totalPL) : 0;
 
   return React.createElement('nav', { className: `sidebar ${collapsed ? 'collapsed' : ''}` },
 
