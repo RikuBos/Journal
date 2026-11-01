@@ -1,7 +1,3 @@
-// ============================================================
-// MISTAKES PAGE
-// ============================================================
-
 function MistakesPage() {
   const { accountTrades, mistakes, upsertMistake } = useApp();
   const [showAdd, setShowAdd] = React.useState(false);
@@ -92,9 +88,6 @@ function MistakesPage() {
   );
 }
 
-// ============================================================
-// PLAYBOOK PAGE
-// ============================================================
 function PlaybookPage() {
   const { playbook, upsertPlaybook, deletePlaybook } = useApp();
   const [showForm,   setShowForm]   = React.useState(false);
@@ -221,9 +214,6 @@ function PlaybookPage() {
   );
 }
 
-// ============================================================
-// REVIEWS PAGE
-// ============================================================
 function ReviewsPage() {
   const { accountTrades, weeklyReviews, monthlyReviews, saveWeeklyReview, saveMonthlyReview } = useApp();
   const [tab,         setTab]  = React.useState('weekly');
@@ -429,9 +419,6 @@ function ReviewsPage() {
   );
 }
 
-// ============================================================
-// DAILY JOURNAL PAGE
-// ============================================================
 function JournalPage() {
   const { journals, accountTrades, upsertJournal, activeAccountId } = useApp();
   const [selDate, setSelDate] = React.useState(new Date().toISOString().split('T')[0]);
@@ -574,9 +561,6 @@ function JournalPage() {
   );
 }
 
-// ============================================================
-// SETTINGS PAGE
-// ============================================================
 // ── PAYOUT BUFFER — one value per account, saved on the account record ──
 function BufferRow({ acc, onSave }) {
   var saved = acc.bufferAmount !== undefined && acc.bufferAmount !== null ? acc.bufferAmount : 40;
@@ -620,13 +604,13 @@ function PayoutBufferSettings() {
 }
 
 function SettingsPage() {
-  const { settings, saveSettings, exportData, importData, resetData, mistakes } = useApp();
+  const { settings, saveSettings, mistakes } = useApp();
   const [f,            setF]    = React.useState({ ...DEFAULT_SETTINGS });
   const [tab,          setTab]  = React.useState('general');
-  const [confirmReset, setCR]   = React.useState(false);
   const [newSetup,     setNS]   = React.useState('');
   const [newConf,      setNC]   = React.useState('');
   const [newPOI,       setNP]   = React.useState('');
+  const [newSpot, setNSpot] = React.useState('');
   const [loaded,       setLoaded] = React.useState(false);
   var set = function(k, v) {
     setF(function(prev) {
@@ -651,19 +635,15 @@ function SettingsPage() {
 
   const addCustom = (key, val, clear) => {
     if (!val.trim()) return;
+    var item = val.trim();
+    if (key === 'customInstruments') {
+      var sym = item.toUpperCase().replace(/\.S$/, '').replace(/[^A-Z0-9]/g, '');
+      if (!sym) return;
+      item = sym + '.S';
+    }
     const list = f[key] || [];
-    if (!list.includes(val.trim())) set(key, [...list, val.trim()]);
+    if (!list.includes(item)) set(key, [...list, item]);
     clear('');
-  };
-
-  const handleImport = (e) => {
-    const file = e.target.files[0]; if (!file) return;
-    const reader = new FileReader();
-    reader.onload = async ev => {
-      try { await importData(ev.target.result); UI.toast('Data imported successfully', 'success'); }
-      catch { UI.toast('Import failed: invalid file', 'error'); }
-    };
-    reader.readAsText(file);
   };
 
   const PillList = ({ listKey, all, color }) =>
@@ -684,7 +664,7 @@ function SettingsPage() {
         h(UI.Icon, { name: 'check', size: 12 }), 'Auto-saving')
     ),
     h('div', { className: 'page-tabs' },
-      [{ id:'general', label:'General' }, { id:'trading', label:'Trading Concepts' }, { id:'payout', label:'Payout' }, { id:'data', label:'Data Management' }, { id:'discord', label:'Discord Webhook' }].map(t =>
+      [{ id:'general', label:'General' }, { id:'trading', label:'Trading Concepts' }, { id:'payout', label:'Payout' }, { id:'discord', label:'Discord Webhook' }].map(t =>
         h('div', { key: t.id, className: `page-tab ${tab === t.id ? 'active' : ''}`, onClick: () => setTab(t.id) }, t.label)
       )
     ),
@@ -697,7 +677,7 @@ function SettingsPage() {
             h('div', { className: 'input-group' }, h('label', { className: 'input-label' }, 'Currency'), h(UI.CustomDropdown, { value: f.currency||'USD', onChange: function(v){set('currency',v);}, options: CURRENCIES.map(function(c){return{value:c,label:c};}) })),
             h('div', { className: 'input-group' }, h('label', { className: 'input-label' }, 'Timezone'), h(UI.CustomDropdown, { value: f.timezone||'America/New_York', onChange: function(v){set('timezone',v);}, options: ['America/New_York','America/Chicago','Europe/London','Europe/Zurich','Asia/Tokyo','Asia/Singapore','Australia/Sydney'].map(function(tz){return{value:tz,label:tz};}) })),
             h('div', { className: 'input-group' }, h('label', { className: 'input-label' }, 'Default Risk %'), h('input', { className: 'input-field', type: 'number', step: 0.1, value: f.defaultRisk, onChange: e => set('defaultRisk', +e.target.value) })),
-            h('div', { className: 'input-group' }, h('label', { className: 'input-label' }, 'Default Instrument'), h(UI.CustomDropdown, { value: f.defaultInstrument||'NQ', onChange: function(v){set('defaultInstrument',v);}, options: INSTRUMENTS.map(function(i){return{value:i,label:i};}) }))
+            h('div', { className: 'input-group' }, h('label', { className: 'input-label' }, 'Default Instrument'), h(UI.CustomDropdown, { value: f.defaultInstrument||'NQ', onChange: function(v){set('defaultInstrument',v);}, options: INSTRUMENTS.concat(f.customInstruments||[]).map(function(i){return{value:i,label:i};}) }))
           )
         ),
         h('div', { className: 'glass-card' },
@@ -716,13 +696,14 @@ function SettingsPage() {
           { title: 'Custom Setups',        key: 'customSetups',         all: [...SETUPS, ...(f.customSetups||[])],         val: newSetup, setVal: setNS, color: '#7aaff5' },
           { title: 'Custom Confirmations', key: 'customConfirmations',  all: [...CONFIRMATIONS, ...(f.customConfirmations||[])], val: newConf, setVal: setNC, color: '#2dce89' },
           { title: 'Custom POIs',          key: 'customPOIs',           all: [...POIS, ...(f.customPOIs||[])],             val: newPOI,  setVal: setNP, color: 'var(--cyan)' },
+          { title: 'Spot Crypto Pairs',    key: 'customInstruments',    all: f.customInstruments||[],                      val: newSpot, setVal: setNSpot, color: '#fbbf24', hint: 'Symbol, e.g. BTC (saved as BTC.S)' },
           { title: 'Mistake Types',        key: null,                   all: mistakes.map(m => m.name),                    val: null,    setVal: null,  color: '#f5365c' },
-        ].map(({ title, key, all, val, setVal, color }) =>
+        ].map(({ title, key, all, val, setVal, color, hint }) =>
           h('div', { key: title, className: 'glass-card' },
             h('div', { className: 'card-header' }, h('span', { className: 'card-title' }, title), h('span', { style: { fontSize: 11, color: 'var(--t3)' } }, `${all.length} total`)),
             h('div', { className: 'card-body' },
               key && h('div', { style: { display: 'flex', gap: 6, marginBottom: 10 } },
-                h('input', { className: 'input-field', placeholder: `Add custom ${title.toLowerCase().replace('custom ', '')}…`, value: val, onChange: e => setVal(e.target.value), onKeyDown: e => e.key === 'Enter' && addCustom(key, val, setVal) }),
+                h('input', { className: 'input-field', placeholder: hint || `Add custom ${title.toLowerCase().replace('custom ', '')}…`, value: val, onChange: e => setVal(e.target.value), onKeyDown: e => e.key === 'Enter' && addCustom(key, val, setVal) }),
                 h('button', { className: 'btn btn-secondary btn-sm', onClick: () => addCustom(key, val, setVal) }, h(UI.Icon, { name: 'plus', size: 13 }))
               ),
               h(PillList, { listKey: key || '', all, color })
@@ -732,28 +713,6 @@ function SettingsPage() {
       ),
 
       tab === 'payout' && h(PayoutBufferSettings),
-      tab === 'data' && h('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, alignItems: 'flex-start' } },
-        h('div', { className: 'glass-card' },
-          h('div', { className: 'card-header' }, h('span', { className: 'card-title' }, 'Export & Backup')),
-          h('div', { className: 'card-body' },
-            h('div', { style: { fontSize: 12.5, color: 'var(--t2)', marginBottom: 10, lineHeight: 1.55 } }, 'Export all trades, accounts, journals, and settings as a JSON backup file.'),
-            h('button', { className: 'btn btn-secondary', style: { width: '100%', justifyContent: 'center', marginBottom: 14 }, onClick: exportData }, h(UI.Icon, { name: 'download', size: 14 }), 'Export JSON Backup'),
-            h('hr', { className: 'section-divider' }),
-            h('div', { style: { fontSize: 12.5, color: 'var(--t2)', marginBottom: 10, lineHeight: 1.55 } }, 'Import a previously exported JSON backup file.'),
-            h('label', { htmlFor: 'import-file' },
-              h('div', { className: 'btn btn-secondary', style: { width: '100%', justifyContent: 'center', cursor: 'pointer' } }, h(UI.Icon, { name: 'upload', size: 14 }), 'Import JSON Backup')
-            ),
-            h('input', { id: 'import-file', type: 'file', accept: '.json', style: { display: 'none' }, onChange: handleImport })
-          )
-        ),
-        h('div', { className: 'glass-card' },
-          h('div', { className: 'card-header' }, h('span', { className: 'card-title' }, 'Danger Zone')),
-          h('div', { className: 'card-body' },
-            h('div', { className: 'alert alert-danger', style: { marginBottom: 14 } }, h(UI.Icon, { name: 'alert', size: 13 }), 'These actions are irreversible. Export a backup before proceeding.'),
-            h('button', { className: 'btn btn-danger', style: { width: '100%', justifyContent: 'center' }, onClick: () => setCR(true) }, h(UI.Icon, { name: 'trash', size: 14 }), 'Reset All Data')
-          )
-        )
-      ),
       tab === 'discord' && h('div', null,
         h('div', { className: 'glass-card' },
           h('div', { className: 'card-header' }, h('span', { className: 'card-title' }, 'Discord Integration')),
@@ -769,8 +728,7 @@ function SettingsPage() {
           )
         )
       )
-    ),
-    h(UI.ConfirmModal, { open: confirmReset, onClose: () => setCR(false), onConfirm: async () => { await resetData(); UI.toast('All data has been reset', 'success'); }, title: 'Reset All Data', message: 'This will permanently delete all trades, accounts, journals, playbook entries, and reviews. This cannot be undone. Are you absolutely sure?' })
+    )
   );
 }
 

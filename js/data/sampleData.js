@@ -1,6 +1,3 @@
-// ============================================================
-// SAMPLE DATA — Realistic demo trading data
-// ============================================================
 window.SAMPLE_ACCOUNT = {
   id: 'acc-demo-001',
   name: 'Demo — Phase 1 (5K)',

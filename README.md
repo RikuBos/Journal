@@ -1,14 +1,25 @@
 # Trade Journal
 
-Jurnal trading untuk akun prop firm (FundedNext, E8, TopStep) dan akun broker biasa. Berjalan penuh di browser: tidak ada server, tidak ada build, data disimpan di IndexedDB milik browser kamu.
+Jurnal trading untuk akun prop firm (FundedNext, E8, TopStep) dan akun broker biasa. Frontend-nya HTML/CSS/JavaScript biasa tanpa build. Login, data, dan gambar disimpan di Supabase, jadi data per user terpisah dan tidak hilang kalau browser dibersihkan.
 
 ## Menjalankan
 
-1. Taruh `favicon.png` (ikon tab) dan `logo.png` (logo sidebar) di folder yang sama dengan `index.html`. Keduanya boleh gambar berbeda. Kalau `logo.png` tidak ada, sidebar menampilkan teks "FT".
-2. Buka `index.html` lewat Live Server (VS Code) atau hosting statis apa saja (Vercel, Netlify, GitHub Pages).
-3. Perlu internet, karena React, Recharts, dan font diambil dari CDN.
+1. Siapkan Supabase mengikuti `SUPABASE-SETUP.md` (jalankan `supabase/schema.sql`, atur auth, bucket storage).
+2. Isi URL dan publishable key di `js/lib/supabase-config.js`.
+3. Taruh `favicon.png` (ikon tab) dan `logo.png` (logo sidebar) di folder yang sama dengan `index.html`. Keduanya boleh gambar berbeda.
+4. Buka lewat Live Server (VS Code) atau deploy statis (Vercel). Membuka `index.html` langsung dari file tidak cukup untuk login Supabase.
+5. Perlu internet: React, Recharts, Supabase JS, dan font diambil dari CDN.
 
-Saat pertama dibuka aplikasi kosong. Tidak ada data contoh. Buat akun dulu di halaman Accounts.
+Pertama kali dibuka, daftar dulu lalu buat akun di halaman Accounts. Tidak ada data contoh.
+
+## Profil
+
+Di pojok kanan atas halaman Dashboard ada avatar. Klik untuk membuka menu:
+
+- **Account settings**: ubah username, ganti foto profil, ganti password. Email hanya ditampilkan, tidak bisa diubah dari sini.
+- **Sign out**
+
+Username dan foto disimpan di metadata user Supabase. Foto masuk ke bucket privat `user-images`.
 
 ## Halaman
 
@@ -22,7 +33,9 @@ Saat pertama dibuka aplikasi kosong. Tidak ada data contoh. Buat akun dulu di ha
 | Analytics | Statistik per session, setup, hari, dan kepatuhan aturan |
 | Mistakes, Playbook | Daftar kesalahan dan setup trading milikmu |
 | Reviews, Daily Journal | Review mingguan/bulanan dan jurnal harian |
-| Settings | Preferensi, konsep trading, buffer payout, ekspor/impor data, Discord |
+| Settings | Preferensi, konsep trading, buffer payout, Discord |
+
+Tombol "+" di kanan bawah hanya muncul di Dashboard, Trades, dan Accounts. Di Accounts tombol itu membuat akun baru, di dua halaman lain membuat trade baru.
 
 Edit dan hapus dilakukan lewat klik kanan pada baris trade, kartu akun, atau kartu playbook. Tidak ada tombol edit/hapus yang terlihat.
 
@@ -49,21 +62,20 @@ Di form trade, field yang dihitung otomatis:
 - **Execution quality** (1-10), dihitung saat trade disimpan, tidak diinput manual
 - **Grade**, otomatis juga, tapi bisa kamu timpa manual. Kalau ditimpa, label "manual override" muncul.
 
-### Point value
+### Instrument dan point value
 
-Nilai dolar per 1 poin per kontrak/lot. Ada di `js/utils/calc.js` (`POINT_VALUES`). Instrumen yang tidak ada di tabel dianggap 1.
+Daftar bawaan: NQ, ES, YM, EURUSD, GBPUSD, USDJPY, GBPJPY, XAUUSD, BTCUSD, ETHUSD. Point value (dolar per 1 poin per kontrak/lot) ada di `js/utils/calc.js` (`POINT_VALUES`). Instrumen yang tidak ada di tabel dianggap 1.
 
 | Instrumen | Per poin |
 |---|---|
 | NQ / MNQ | $10 / $1 |
 | ES / MES | $50 / $5 |
 | YM / MYM | $5 / $0.5 |
-| RTY | $50 |
-| CL | $1000 |
-| GC / SI | $100 / $5000 |
 | Pair forex mayor | $10 |
-| XAUUSD / XAGUSD | $100 / $5000 |
+| XAUUSD | $100 |
 | BTCUSD / ETHUSD | $1 |
+
+BTCUSD dan ETHUSD dipakai untuk perhitungan futures. Untuk crypto spot, tambahkan sendiri di Settings > Trading Concepts > Spot Crypto Pairs: ketik simbol (mis. `SOL`), tersimpan sebagai `SOL.S`. Pair spot memakai point value 1, jadi size diisi jumlah koin dan P/L = selisih harga x jumlah koin. Pair yang kamu tambah muncul di dropdown instrument di form trade dan di Default Instrument.
 
 ### Execution quality
 
@@ -120,13 +132,14 @@ Yang dikirim:
 - setiap payout (nama akun, tanggal, jam, jumlah, sisa balance)
 - ringkasan mingguan (hari Sabtu) dan bulanan (tanggal 1): jumlah trade, win rate, rata-rata R:R, kualitas eksekusi, total P/L, perubahan balance
 
-Catatan: karena ini halaman statis tanpa server, ringkasan mingguan dan bulanan **dikirim saat aplikasi dibuka pada hari itu**, bukan tepat jam 00:00. Kalau aplikasi tidak dibuka di hari Sabtu, ringkasan minggu itu tidak terkirim. Penanda "sudah dikirim" disimpan di localStorage supaya tidak terkirim dua kali.
+Karena tidak ada server, ringkasan mingguan dan bulanan **dikirim saat aplikasi dibuka pada hari itu**, bukan tepat jam 00:00. Kalau aplikasi tidak dibuka di hari Sabtu, ringkasan minggu itu tidak terkirim. Penanda "sudah dikirim" disimpan di localStorage browser, jadi kalau dibuka dari browser atau perangkat lain di hari yang sama, ringkasannya bisa terkirim lagi.
 
 ## Data
 
-- Semua data ada di IndexedDB (`FundedTradingJournal`) di browser yang kamu pakai. Pindah browser atau hapus data situs berarti data hilang.
-- Settings > Data Management: ekspor semua data ke JSON, impor dari JSON, atau reset. Ekspor secara berkala.
-- Pengaturan (termasuk buffer per akun) tersimpan otomatis.
+- Semua data ada di tabel `user_records` (JSONB) di Supabase, dipisahkan per user lewat RLS. Screenshot dan foto profil ada di Storage privat.
+- Pengaturan (termasuk buffer per akun dan daftar pair spot) tersimpan otomatis.
+- Menu Data Management (ekspor/impor) sudah dihapus. Backup dilakukan dari sisi Supabase.
+- Webhook Discord ikut tersimpan di database sebagai bagian dari settings.
 
 ## Menambah atau mengubah model prop firm
 
@@ -153,15 +166,17 @@ Data FundedNext di file itu berasal dari halaman resmi FundedNext. Isian E8 Mark
 
 ```
 index.html
-favicon.png, logo.png          (kamu yang menyediakan)
+favicon.png, logo.png
 css/style.css
+supabase/schema.sql
+SUPABASE-SETUP.md, INTEGRATION-NOTES.md
 js/
-  app.js                        root, routing halaman, tombol tambah trade
-  lib/        db.js, state.js, discord.js
+  app.js                        root, routing halaman, tombol tambah
+  lib/        supabase-config.js, supabase-client.js, auth.js, db.js, state.js, discord.js
   utils/      calc.js           semua rumus
   data/       constants.js, propFirmData.js, sampleData.js
   components/
-    shared/     ui.js, sidebar.js
+    shared/     ui.js, sidebar.js, profile.js
     dashboard/  dashboard.js
     trades/     trades.js, tradeForm.js
     accounts/   accounts.js, accountForm.js, payoutPage.js
@@ -173,6 +188,6 @@ Urutan `<script>` di `index.html` penting, karena tidak ada bundler. File yang d
 
 ## Keterbatasan
 
-- Satu browser, satu perangkat. Tidak ada sinkronisasi.
 - Ringkasan Discord terjadwal bergantung pada aplikasi dibuka (lihat di atas).
 - Drawdown disederhanakan, payout mengikuti rumus di atas, bukan perhitungan resmi firm.
+- Email tidak bisa diubah dari aplikasi.

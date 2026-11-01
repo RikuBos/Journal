@@ -1,6 +1,3 @@
-// ============================================================
-// DASHBOARD PAGE
-// ============================================================
 var uMemo = React.useMemo;
 
 function DashboardPage() {
@@ -56,8 +53,14 @@ function DashboardPage() {
   if (!isBroker && dailyDDPct > 70) warnings.push({ type: 'danger',  msg: `Daily loss at ${dailyDDPct.toFixed(0)}% of daily limit today` });
   else if (!isBroker && ddPct > 40) warnings.push({ type: 'warning', msg: `Drawdown at ${ddPct.toFixed(0)}% of max — ${Calc.fmt.currency(activeAccount?.maxLoss - ddInfo.amount)} remaining` });
 
-  if (!activeAccount) return h('div', { className: 'page-body', style: { paddingTop: 24 } },
-    h(EmptyState, { icon: 'accounts', title: 'No account selected', desc: 'Create a funded account to start tracking your performance.', action: null })
+  if (!activeAccount) return h('div', null,
+    h('div', { className: 'page-header' },
+      h('div', null, h('div', { className: 'page-title' }, 'Dashboard')),
+      h(ProfileMenu)
+    ),
+    h('div', { className: 'page-body', style: { paddingTop: 24 } },
+      h(EmptyState, { icon: 'accounts', title: 'No account selected', desc: 'Create a account to start tracking your performance.', action: null })
+    )
   );
 
   return h('div', null,
@@ -67,9 +70,7 @@ function DashboardPage() {
         h('div', { className: 'page-title' }, 'Dashboard'),
         h('div', { className: 'page-subtitle' }, activeAccount.propFirm + '   ' + activeAccount.name + (isBroker ? '' : '   ' + activeAccount.phase))
       ),
-      h('div', { style: { display: 'flex', gap: 8, alignItems: 'center' } },
-        h('span', { className: `badge ${activeAccount.status === 'Active' ? 'badge-green' : activeAccount.status === 'Passed' ? 'badge-blue' : 'badge-red'}` }, activeAccount.status)
-      )
+      h(ProfileMenu)
     ),
 
     h('div', { className: 'page-body' },

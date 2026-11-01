@@ -1,9 +1,3 @@
-// ============================================================
-// DISCORD WEBHOOK SERVICE
-// Pure functions - no React dependency
-// All text is clean: no emoji, no markdown symbols
-// ============================================================
-
 var DiscordWebhook = (function () {
 
   // Strip all markdown / emoji / special chars that look bad in Discord embeds

@@ -34,11 +34,11 @@ Import this folder/repository as a static site. No build command is required; se
 
 ## 6) Existing local data migration
 
-Before replacing the old deployed version, open its Settings > Data Management > Export and save the JSON backup. In the new Supabase-backed version, register/login, open Settings > Data Management > Import, and import that JSON. Import writes records into the currently authenticated user's account. Keep the backup until you've verified the imported data.
+The Settings > Data Management tab (export/import) was removed once the app moved to Supabase. If you still have data in a browser that ran the old IndexedDB version, move it over first with the build that still had that tab, then switch to this one.
 
 ## 7) Image handling
 
-Trade screenshots are uploaded to the private `trade-screenshots` bucket. The database stores the Storage path, not the base64 image. The app requests a 1-hour signed URL when rendering screenshots. The generic helper `DB.uploadFile(file, folder)` is available for future profile/avatar upload UI and uses the private `user-images` bucket; `DB.getFileUrl(path, 'user-images')` returns a signed URL.
+Trade screenshots are uploaded to the private `trade-screenshots` bucket. The database stores the Storage path, not the base64 image. The app requests a 1-hour signed URL when rendering screenshots. The generic helper `DB.uploadFile(file, folder)` is used by the profile photo upload (Account settings) and stores files in the private `user-images` bucket; `DB.getFileUrl(path, 'user-images')` returns a signed URL.
 
 Allowed images: PNG, JPG/JPEG, WEBP. Max size: 8 MB.
 

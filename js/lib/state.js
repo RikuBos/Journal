@@ -1,6 +1,3 @@
-// ============================================================
-// APP STATE — React Context Provider
-// ============================================================
 var createContext = React.createContext;
 var useContext = React.useContext;
 var useState = React.useState;

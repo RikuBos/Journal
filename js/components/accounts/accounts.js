@@ -1,7 +1,3 @@
-// ============================================================
-// ACCOUNTS PAGE
-// ============================================================
-
 function AccountsPage() {
   const { accounts, trades, upsertAccount, deleteAccount, switchAccount, activeAccountId } = useApp();
   const [showForm,   setShowForm]   = React.useState(false);
@@ -105,9 +101,6 @@ function AccountsPage() {
   );
 }
 
-// ============================================================
-// CALENDAR PAGE
-// ============================================================
 function CalendarPage() {
   const { accountTrades } = useApp();
   const [cur, setCur] = React.useState(() => { const d = new Date(); return { year: d.getFullYear(), month: d.getMonth() }; });
@@ -228,9 +221,6 @@ function CalendarPage() {
   );
 }
 
-// ============================================================
-// ANALYTICS PAGE
-// ============================================================
 function AnalyticsPage() {
   const { accountTrades } = useApp();
   const [filterSession, setFS] = React.useState('');

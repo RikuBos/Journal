@@ -1,7 +1,3 @@
-// ============================================================
-// DISCORD WEBHOOK SETTINGS — UI Component
-// ============================================================
-
 function DiscordSettings({ settings, onChange }) {
   var [testing,       setTesting]      = React.useState(false);
   var [testResult,    setResult]       = React.useState(null);

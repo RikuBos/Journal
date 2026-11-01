@@ -1,6 +1,3 @@
-// ============================================================
-// CONSTANTS — Trading concepts, options, defaults
-// ============================================================
 window.SETUPS = [
   'FVG','IFVG','Order Block','Breaker','SMT','CISD',
   'Liquidity Sweep','Turtle Soup','Market Structure Shift',
@@ -14,7 +11,7 @@ window.POIS = [
 ];
 window.SESSIONS    = ['Asian','London','New York','London Open','New York Open','Overlap','Pre-Market','After-Hours'];
 window.TIMEFRAMES  = ['1m','3m','5m','15m','30m','1H','4H','Daily','Weekly'];
-window.INSTRUMENTS = ['NQ','ES','YM','RTY','CL','GC','EURUSD','GBPUSD','USDJPY','GBPJPY','XAUUSD','BTCUSD','ETHUSD'];
+window.INSTRUMENTS = ['NQ','ES','YM','EURUSD','GBPUSD','USDJPY','GBPJPY','XAUUSD','BTCUSD','ETHUSD'];
 window.EMOTIONS    = ['Calm','Confident','Anxious','Frustrated','Fearful','Greedy','Neutral','Excited','Bored','Revenge'];
 window.MARKET_CONDITIONS = ['Trending Up','Trending Down','Ranging','High Volatility','Low Volatility','News Driven'];
 window.GRADES      = ['A+','A','B','C','D','F'];
@@ -32,6 +29,7 @@ window.DEFAULT_SETTINGS = {
   customSetups: [],
   customConfirmations: [],
   customPOIs: [],
+  customInstruments: [],
   customMistakes: [],
   // Discord Webhook
   discordWebhookUrl: '',

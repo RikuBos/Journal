@@ -1,6 +1,3 @@
-// ============================================================
-// SHARED UI COMPONENTS
-// ============================================================
 // React hooks - h is available globally via window.h set in db.js
 var useState = React.useState;
 var useEffect = React.useEffect;

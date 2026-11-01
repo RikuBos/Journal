@@ -1,7 +1,3 @@
-// ============================================================
-// PAYOUT PAGE — On-demand payout calculator + history
-// ============================================================
-
 
 // ── BROKER PAYOUT — no rules, no buffer, direct withdrawal ──
 function BrokerPayoutView(props) {

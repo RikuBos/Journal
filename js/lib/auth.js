@@ -1,6 +1,3 @@
-// ============================================================
-// AUTH GATE — login/register without changing existing dashboard UI
-// ============================================================
 function AuthGate() {
   var useState = React.useState, useEffect = React.useEffect;
   var [session, setSession] = useState(null);
@@ -51,13 +48,7 @@ function AuthGate() {
       h('code', { className:'auth-code' }, 'js/lib/supabase-config.js')
     )
   );
-  if (session) return h(React.Fragment, null,
-    h('div', { className:'auth-userbar' },
-      h('span', null, session.user.email),
-      h('button', { className:'btn btn-secondary btn-sm', onClick: async function() { await window.sb.auth.signOut(); } }, 'Sign out')
-    ),
-    h(AppProvider, { key: session.user.id }, h(App))
-  );
+  if (session) return h(AppProvider, { key: session.user.id }, h(App));
 
   return h('div', { className:'auth-screen' },
     h('form', { className:'auth-card', onSubmit:submit },

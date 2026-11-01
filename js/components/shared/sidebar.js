@@ -1,7 +1,3 @@
-// ============================================================
-// SIDEBAR — Navigation
-// ============================================================
-
 function Sidebar({ page, setPage, collapsed, setCollapsed }) {
   const { activeAccount, trades, activeAccountId } = useApp();
 
@@ -44,7 +40,7 @@ function Sidebar({ page, setPage, collapsed, setCollapsed }) {
       ),
       React.createElement('div', { className: 'logo-text' },
         React.createElement('span', { className: 'l1' }, 'Trading Journal'),
-        React.createElement('span', { className: 'l2' }, 'Funded Account')
+        React.createElement('span', { className: 'l2' }, 'Account')
       ),
       React.createElement('div', { className: 'sidebar-toggle', onClick: () => setCollapsed(!collapsed), title: collapsed ? 'Expand' : 'Collapse' },
         React.createElement(UI.Icon, { name: 'chevronL', size: 11, color: 'var(--t3)' })

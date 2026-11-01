@@ -1,7 +1,3 @@
-// ============================================================
-// CALCULATION ENGINE — Pure utility functions
-// ============================================================
-
 // Point value per instrument (dollar value per 1 point move, per 1 contract/lot)
 // Futures: per contract. Forex: per standard lot (100,000 units). Crypto: varies.
 var POINT_VALUES = {

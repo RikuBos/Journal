@@ -1,6 +1,3 @@
-// ============================================================
-// TRADE FORM — Entry & Edit
-// ============================================================
 var useFS = React.useState;
 var useFM = React.useMemo;
 var useFR = React.useRef;
@@ -211,16 +208,15 @@ function TradeForm({ trade, onSave, onClose }) {
           })
         ),
         h('div', { className: 'input-group' },
-          h('label', { className: 'input-label' },
-            'Instrument',
-            f.instrument && h('span', { style: { color: 'var(--t3)', fontWeight: 400, marginLeft: 6 } },
-              '  ' + Calc.fmt.currency(getPointValue(f.instrument)) + '/pt'
-            )
-          ),
+          h('label', { className: 'input-label' }, 'Instrument'),
           h(UI.CustomDropdown, {
             value: f.instrument || '',
             onChange: function(v) { set('instrument', v); },
-            options: INSTRUMENTS.map(function(i) { return { value: i, label: i }; }),
+            options: (function() {
+              var list = INSTRUMENTS.concat((settings && settings.customInstruments) || []);
+              if (f.instrument && list.indexOf(f.instrument) < 0) list = list.concat(f.instrument);
+              return list.map(function(i) { return { value: i, label: i }; });
+            })(),
             placeholder: 'Select Instrument',
           })
         ),

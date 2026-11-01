@@ -1,6 +1,3 @@
-// ============================================================
-// RUNTIME DEPENDENCY CHECK
-// ============================================================
 (function() {
   const missing = [];
   if (typeof React === 'undefined')    missing.push('React');
@@ -12,45 +9,48 @@
   }
 })();
 
-// ============================================================
-// APP ENTRY POINT
-// ============================================================
 
+function FloatingAddButton({ page }) {
+  var { upsertTrade, upsertAccount } = useApp();
+  var [openTrade, setOpenTrade] = React.useState(false);
+  var [openAccount, setOpenAccount] = React.useState(false);
 
-// ── FLOATING ADD TRADE BUTTON ─────────────────────────────
-function FABTradeButton() {
-  var { upsertTrade } = useApp();
-  var [open, setOpen] = React.useState(false);
-
-  // Listen for external trigger
   React.useEffect(function() {
-    function handler() { setOpen(true); }
+    function handler() { setOpenTrade(true); }
     window.addEventListener('openFAB', handler);
     return function() { window.removeEventListener('openFAB', handler); };
   }, []);
 
+  if (['dashboard', 'trades', 'accounts'].indexOf(page) < 0) return null;
+  var forAccount = page === 'accounts';
+
   return h(React.Fragment, null,
     h('div', {
       className: 'fab-add-trade',
-      onClick: function() { setOpen(true); },
-      title: 'New Trade',
+      'aria-label': forAccount ? 'New Account' : 'New Trade',
+      onClick: function() { forAccount ? setOpenAccount(true) : setOpenTrade(true); },
     },
       h(UI.Icon, { name: 'plus', size: 22 })
     ),
-    h(UI.Modal, {
-      open: open,
-      onClose: function() { setOpen(false); },
-      title: 'New Trade',
-      size: 'lg',
-    },
-      open && h(TradeForm, {
+    h(UI.Modal, { open: openTrade, onClose: function() { setOpenTrade(false); }, title: 'New Trade', size: 'lg' },
+      openTrade && h(TradeForm, {
         trade: null,
         onSave: async function(trade) {
           await upsertTrade(trade);
           UI.toast('Trade saved', 'success');
-          setOpen(false);
+          setOpenTrade(false);
         },
-        onClose: function() { setOpen(false); },
+        onClose: function() { setOpenTrade(false); },
+      })
+    ),
+    h(UI.Modal, { open: openAccount, onClose: function() { setOpenAccount(false); }, title: 'New Account', size: 'lg' },
+      openAccount && h(AccountForm, {
+        account: null,
+        onSave: async function(acc) {
+          await upsertAccount(acc);
+          UI.toast('Account created', 'success');
+        },
+        onClose: function() { setOpenAccount(false); },
       })
     )
   );
@@ -88,7 +88,7 @@ function App() {
     h('div', { id: 'main-content', className: 'main-content' + (collapsed ? ' expanded' : '') },
       h(PageComponent)
     ),
-    h(FABTradeButton)
+    h(FloatingAddButton, { page: page })
   );
 }
 

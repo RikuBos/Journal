@@ -1,7 +1,3 @@
-// ============================================================
-// PROP FIRM DATA — Account templates, rules, sizes
-// ============================================================
-
 // ── FUNDEDNEXT CFD MODELS ──────────────────────────────────
 var FUNDEDNEXT_CFD = {
   'Stellar 2-Step': {

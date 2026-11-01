@@ -1,6 +1,3 @@
-// ============================================================
-// SUPABASE DATA LAYER — keeps the existing DB API used by the app
-// ============================================================
 var STORES = {
   accounts: 'accounts', trades: 'trades', journals: 'journals',
   weeklyReviews: 'weeklyReviews', monthlyReviews: 'monthlyReviews',

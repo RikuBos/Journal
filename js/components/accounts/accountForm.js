@@ -1,7 +1,4 @@
 
-// ============================================================
-// ACCOUNT FORM — Smart prop firm selector + auto-fill
-// ============================================================
 function AccountForm({ account, onSave, onClose }) {
   var firms    = ['FundedNext', 'E8 Markets', 'TopStep'];
   
@@ -163,19 +160,19 @@ function AccountForm({ account, onSave, onClose }) {
   if (kind === 'broker') {
     return h('div', null,
       kindToggle,
-      inp('Account Name', name, setName, { placeholder: 'e.g. Exness Real' }),
       h('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0 14px' } },
-        h('div', { className: 'input-group', style: { gridColumn: 'span 2' } },
-          h('label', { className: 'input-label' }, 'Balance'),
-          h('input', { className: 'input-field', type: 'number', min: 0, step: 'any', placeholder: '0.00',
-            value: brokerBal, onChange: function(e) { setBrokerBal(e.target.value); } })
-        ),
+        h('div', { style: { gridColumn: 'span 2' } }, inp('Account Name', name, setName, { placeholder: 'e.g. Exness Real' })),
         h('div', { className: 'input-group' },
           h('label', { className: 'input-label' }, 'Status'),
           h(UI.CustomDropdown, {
             value: status, onChange: setStatus,
             options: ['Active','Archived'].map(function(s) { return { value: s, label: s }; }),
           })
+        ),
+        h('div', { className: 'input-group' },
+          h('label', { className: 'input-label' }, 'Balance'),
+          h('input', { className: 'input-field', type: 'number', min: 0, step: 'any', placeholder: '0.00',
+            value: brokerBal, onChange: function(e) { setBrokerBal(e.target.value); } })
         )
       ),
       h('div', { style: { display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 4 } },
@@ -188,7 +185,9 @@ function AccountForm({ account, onSave, onClose }) {
   return h('div', null,
     kindToggle,
     // Row 0: Account Name (full width)
-    inp('Account Name', name, setName, { placeholder: 'e.g. My FundedNext $5K' }),
+    h('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0 14px' } },
+      h('div', { style: { gridColumn: 'span 2' } }, inp('Account Name', name, setName, { placeholder: 'e.g. My FundedNext $5K' }))
+    ),
 
     // 3 columns: Prop Firm / Model / Split  |  Type / Cycle / Size  |  Phase / Status
     h('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0 14px' } },
