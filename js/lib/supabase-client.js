@@ -1,4 +1,3 @@
-// Supabase client bootstrap (Supabase JS v2 loaded from CDN in index.html)
 (function () {
   var cfg = window.SUPABASE_CONFIG || {};
   var valid = cfg.url && cfg.publishableKey &&

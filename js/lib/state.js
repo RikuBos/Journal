@@ -45,7 +45,6 @@ function AppProvider({ children }) {
     } catch (e) { console.error('loadAll:', e); }
     setLoading(false);
 
-    // Check if scheduled Discord report is due (Saturday=weekly, 1st=monthly)
     try {
       var allT = await DB.getAll(STORES.trades);
       var allA = await DB.getAll(STORES.accounts);
@@ -53,7 +52,7 @@ function AppProvider({ children }) {
       if (window.DiscordScheduler) {
         await window.DiscordScheduler.checkScheduledReports(allT, allA, sett);
       }
-    } catch(e) { /* silent */ }
+    } catch(e) { }
   }, []);
 
   useEffect(() => { loadAll(); }, [loadAll]);
@@ -61,7 +60,6 @@ function AppProvider({ children }) {
   const activeAccount = accounts.find(a => a.id === activeAccountId) || accounts[0] || null;
   const accountTrades = trades.filter(t => t.accountId === activeAccountId);
 
-  // ── Account CRUD ──
   const upsertAccount = async (acc) => {
     const now  = new Date().toISOString();
     const item = { ...acc, id: acc.id || genId(), createdAt: acc.createdAt || now, updatedAt: now };
@@ -78,15 +76,32 @@ function AppProvider({ children }) {
     setAccounts(p => p.map(a => ({ ...a, isActive: a.id === id })));
   };
 
-  // ── Trade CRUD ──
+  const advancePhase = async (item) => {
+    if (item.status !== 'Closed') return;
+    const acc = accounts.find(a => a.id === item.accountId);
+    if (!acc || acc.isBroker || (acc.phase !== 'Phase 1' && acc.phase !== 'Phase 2')) return;
+    const target = acc.phase === 'Phase 2' ? (acc.phase2Target || acc.profitTarget) : (acc.phase1Target || acc.profitTarget);
+    if (!(target > 0)) return;
+    const total = trades
+      .filter(t => t.accountId === acc.id && t.status === 'Closed' && t.id !== item.id)
+      .reduce((s, t) => s + (t.profitLoss || 0), 0) + (item.profitLoss || 0);
+    if (total - (acc.phasePLBase || 0) < target) return;
+    const model = getPropFirmModel(acc.propFirm, acc.modelName, acc.startingBalance);
+    const next  = (acc.phase === 'Phase 1' && model && model.phases >= 2) ? 'Phase 2' : 'Funded';
+    const patch = { phase: next, phasePLBase: total };
+    if (next === 'Funded') patch.cycleStartBalance = accountBalance(acc, total);
+    await upsertAccount({ ...acc, ...patch });
+    UI.toast(acc.name + ': target reached, moved to ' + next, 'success');
+  };
+
   const upsertTrade = async (trade) => {
     const now  = new Date().toISOString();
     const item = { ...trade, id: trade.id || genId(), createdAt: trade.createdAt || now, updatedAt: now };
-    // Auto-calculations
     if (item.entryPrice && item.stopLoss && item.positionSize) {
       item.riskAmount     = Calc.pointRisk(+item.entryPrice, +item.stopLoss, +item.positionSize, item.instrument);
-      if (activeAccount)
-        item.riskPercentage = +(item.riskAmount / activeAccount.startingBalance * 100).toFixed(2);
+      const riskAcc = accounts.find(a => a.id === item.accountId) || activeAccount;
+      if (riskAcc && riskAcc.startingBalance)
+        item.riskPercentage = +(item.riskAmount / riskAcc.startingBalance * 100).toFixed(2);
     }
     if (item.exitPrice && item.entryPrice && item.positionSize) {
       item.profitLoss = Calc.pl(+item.entryPrice, +item.exitPrice, +item.positionSize, item.direction, item.instrument);
@@ -94,11 +109,8 @@ function AppProvider({ children }) {
         item.rMultiple = +(item.profitLoss / item.riskAmount).toFixed(2);
       item.status = 'Closed';
     }
-    // Auto-calculate execution quality (always recalculate on save)
     item.executionQuality = Calc.executionQuality(item);
 
-    // Auto-calculate grade based on execution quality + R-multiple
-    // Only auto-set if user hasn't manually set a grade (or always override)
     if (item.status === 'Closed') {
       var eq = item.executionQuality || 0;
       var rm = item.rMultiple || 0;
@@ -109,12 +121,11 @@ function AppProvider({ children }) {
       else if (score >= 0.46) item.autoGrade = 'C';
       else if (score >= 0.30) item.autoGrade = 'D';
       else                    item.autoGrade = 'F';
-      // Only set tradeGrade if not manually overridden
       if (!item.tradeGradeManual) item.tradeGrade = item.autoGrade;
     }
     await DB.put(STORES.trades, item);
     setTrades(p => [...p.filter(t => t.id !== item.id), item]);
-    // Discord notification (fire-and-forget, non-blocking)
+    await advancePhase(item);
     if (item.status === 'Closed' && typeof DiscordWebhook !== 'undefined') {
       var sett = await DB.get(STORES.settings, 'settings') || DEFAULT_SETTINGS;
       if (sett.discordEnabled && sett.discordSendOnTrade) {
@@ -129,13 +140,11 @@ function AppProvider({ children }) {
     setTrades(p => p.filter(t => t.id !== id));
   };
 
-  // ── Journal CRUD ──
   const upsertJournal = async (j) => {
     const now  = new Date().toISOString();
     const item = { ...j, id: j.id || genId(), createdAt: j.createdAt || now, updatedAt: now };
     await DB.put(STORES.journals, item);
     setJournals(p => [...p.filter(x => x.id !== item.id), item]);
-    // Discord notification (fire-and-forget, non-blocking)
     if (typeof DiscordWebhook !== 'undefined') {
       var sett = await DB.get(STORES.settings, 'settings') || DEFAULT_SETTINGS;
       if (sett.discordEnabled && sett.discordSendOnJournal) {
@@ -147,7 +156,6 @@ function AppProvider({ children }) {
     return item;
   };
 
-  // ── Playbook CRUD ──
   const upsertPlaybook = async (setup) => {
     const now  = new Date().toISOString();
     const item = { ...setup, id: setup.id || genId(), createdAt: setup.createdAt || now, updatedAt: now };
@@ -160,7 +168,6 @@ function AppProvider({ children }) {
     setPlaybook(p => p.filter(x => x.id !== id));
   };
 
-  // ── Mistake CRUD ──
   const upsertMistake = async (m) => {
     const now  = new Date().toISOString();
     const item = { ...m, id: m.id || genId(), createdAt: m.createdAt || now };
@@ -169,11 +176,9 @@ function AppProvider({ children }) {
     return item;
   };
 
-  // ── Settings ──
   const saveSettings = async (s) => {
     var existing = await DB.get(STORES.settings, 'settings') || {};
     var merged = Object.assign({}, DEFAULT_SETTINGS, existing, s, { id: 'settings' });
-    // Auto-enable discord when a valid webhook URL is present
     if (merged.discordWebhookUrl && merged.discordWebhookUrl.indexOf('discord.com/api/webhooks') >= 0) {
       if (merged.discordEnabled === undefined) merged.discordEnabled = true;
     }
@@ -181,13 +186,11 @@ function AppProvider({ children }) {
     setSettings(merged);
   };
 
-  // ── Reviews ──
   const saveWeeklyReview = async (review) => {
     const now  = new Date().toISOString();
     const item = { ...review, id: review.id || genId(), createdAt: review.createdAt || now, updatedAt: now };
     await DB.put(STORES.weeklyReviews, item);
     setWeeklyReviews(p => [...p.filter(x => x.id !== item.id), item]);
-    // Discord notification (fire-and-forget, non-blocking)
     if (typeof DiscordWebhook !== 'undefined') {
       var sett = await DB.get(STORES.settings, 'settings') || DEFAULT_SETTINGS;
       if (sett.discordEnabled && sett.discordSendOnWeeklyReview) {
@@ -204,7 +207,6 @@ function AppProvider({ children }) {
     return item;
   };
 
-  // ── Data management ──
   const exportData = () => {
     const data = { accounts, trades, journals, weeklyReviews, monthlyReviews, playbook, mistakes, settings, exportDate: new Date().toISOString(), version: '1.0' };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });

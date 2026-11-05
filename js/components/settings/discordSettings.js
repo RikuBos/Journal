@@ -55,7 +55,6 @@ function DiscordSettings({ settings, onChange }) {
 
   return h('div', null,
 
-    // Enable toggle row
     h('div', { style: { display:'flex', alignItems:'center', justifyContent:'space-between', padding:'10px 0', borderBottom:'1px solid var(--border-1)', marginBottom:16 } },
       h('div', null,
         h('div', { style: { fontSize:14, fontWeight:600, color:'var(--t1)' } }, 'Discord Webhook'),
@@ -78,7 +77,6 @@ function DiscordSettings({ settings, onChange }) {
       )
     ),
 
-    // Webhook URL
     h('div', { className:'input-group' },
       h('label', { className:'input-label' }, 'Webhook URL'),
       h('input', {
@@ -100,7 +98,6 @@ function DiscordSettings({ settings, onChange }) {
       )
     ),
 
-    // Bot username
     h('div', { className:'input-group' },
       h('label', { className:'input-label' }, 'Bot Display Name'),
       h('input', {
@@ -112,7 +109,6 @@ function DiscordSettings({ settings, onChange }) {
       })
     ),
 
-    // Format
     h('div', { className:'input-group' },
       h('label', { className:'input-label' }, 'Message Format'),
       h('div', { className:'toggle-group' },
@@ -126,7 +122,6 @@ function DiscordSettings({ settings, onChange }) {
       )
     ),
 
-    // Trigger toggles
     h('div', { className:'section-heading', style:{ marginTop:16 } }, 'Send On'),
     h('div', { style:{ background:'rgba(255,255,255,0.02)', border:'1px solid var(--border-1)', borderRadius:'var(--r2)', padding:'0 14px', marginBottom:16 } },
       toggleRow('New Trade Saved', 'discordSendOnTrade'),
@@ -134,7 +129,6 @@ function DiscordSettings({ settings, onChange }) {
       toggleRow('Weekly Review Saved', 'discordSendOnWeeklyReview'),
     ),
 
-    // Test button
     h('div', { style:{ display:'flex', alignItems:'center', gap:10 } },
       h('button', {
         className: 'btn btn-secondary',
@@ -161,7 +155,6 @@ function DiscordSettings({ settings, onChange }) {
       )
     ),
 
-    // Info
     h('div', { className:'alert alert-info', style:{ marginTop:14 } },
       h(UI.Icon, { name:'info', size:13 }),
       h('span', null, 'Webhook URL is stored locally and never sent to any third-party server. All Discord messages are plain text — no emoji or symbols.')

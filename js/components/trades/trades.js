@@ -15,13 +15,11 @@ function TradeDrawer({ trade, onClose, onEdit }) {
         h('button', { className: 'modal-close', onClick: onClose }, h(UI.Icon, { name: 'x', size: 14 }))
       ),
       h('div', { className: 'drawer-body' },
-        // P/L header
         h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10, marginBottom: 16 } },
           h('div', { className: 'calc-display' }, h('div', { className: 'label' }, 'P/L'), h('div', { className: `value ${(trade.profitLoss||0) >= 0 ? 'text-pos' : 'text-neg'}` }, Calc.fmt.currency(trade.profitLoss||0))),
           h('div', { className: 'calc-display' }, h('div', { className: 'label' }, 'R Multiple'), h('div', { className: `value ${(trade.rMultiple||0) >= 0 ? 'text-pos' : 'text-neg'}` }, Calc.fmt.r(trade.rMultiple))),
           h('div', { className: 'calc-display' }, h('div', { className: 'label' }, 'Grade'), h('div', { className: 'value' }, h(UI.GradeBadge, { grade: trade.tradeGrade }))),
         ),
-        // Info grid
         h('div', { className: 'info-grid', style: { marginBottom: 14 } },
           ...[
             ['Setup',        trade.setup           || ' '],
@@ -43,7 +41,6 @@ function TradeDrawer({ trade, onClose, onEdit }) {
             )
           )
         ),
-        // Emotions
         h('div', { style: { background: 'rgba(8,9,13,0.5)', border: '1px solid var(--border-1)', borderRadius: 8, padding: '10px 12px', marginBottom: 14 } },
           h('div', { style: { fontSize: 10, color: 'var(--t3)', textTransform: 'uppercase', letterSpacing: '0.7px', marginBottom: 8 } }, 'Psychology'),
           h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8, marginBottom: 8 } },
@@ -59,11 +56,9 @@ function TradeDrawer({ trade, onClose, onEdit }) {
             ' · Rule Followed: ', h('span', { style: { color: trade.ruleFollowed ? 'var(--green)' : 'var(--red)' } }, trade.ruleFollowed ? 'Yes' : 'No')
           )
         ),
-        // Mistake
         trade.mistake && h('div', { className: 'alert alert-danger', style: { marginBottom: 14 } },
           h(UI.Icon, { name: 'alert', size: 13 }), `Mistake: ${trade.mistake}`, trade.mistakeSeverity ? ` (${trade.mistakeSeverity})` : ''
         ),
-        // Text sections
         [
           { k: 'whatWentRight',  label: 'What Went Right' },
           { k: 'whatWentWrong',  label: 'What Went Wrong' },
@@ -75,7 +70,6 @@ function TradeDrawer({ trade, onClose, onEdit }) {
             h('div', { style: { fontSize: 12.5, color: 'var(--t2)', lineHeight: 1.65, background: 'rgba(8,9,13,0.35)', padding: '8px 12px', borderRadius: 6, border: '1px solid var(--border-1)' } }, trade[k])
           )
         ),
-        // Screenshots
         trade.screenshots?.length > 0 && h('div', null,
           h('div', { style: { fontSize: 10, color: 'var(--t3)', textTransform: 'uppercase', letterSpacing: '0.7px', marginBottom: 8 } }, `Screenshots (${trade.screenshots.length})`),
           h('div', { className: 'img-gallery' },
@@ -155,14 +149,10 @@ function TradesPage() {
       h('div', null,
         h('div', { className: 'page-title' }, 'Trades'),
         h('div', { className: 'page-subtitle' }, `${filtered.length} of ${trades.length} trades`)
-      ),
-      h('button', { className: 'btn btn-primary', onClick: () => { setEditTrade(null); setShowForm(true); } },
-        'New Trade'
       )
     ),
 
     h('div', { className: 'page-body' },
-      // Filters
       h('div', { style: { display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap', alignItems: 'center' } },
         h(UI.SearchInput, { value: search, onChange: setSearch }),
         h(UI.CustomDropdown, {
@@ -247,19 +237,16 @@ function TradesPage() {
           )
     ),
 
-    // Trade Form Modal
     h(UI.Modal, { open: showForm, onClose: () => { setShowForm(false); setEditTrade(null); }, title: editTrade ? 'Edit Trade' : 'New Trade', size: 'lg' },
       h(TradeForm, { trade: editTrade, onSave: handleSave, onClose: () => { setShowForm(false); setEditTrade(null); } })
     ),
 
-    // Trade Detail Drawer
     h(TradeDrawer, {
       trade: selected,
       onClose: () => setSelected(null),
       onEdit: () => { setEditTrade(selected); setShowForm(true); setSelected(null); },
     }),
 
-    // Confirm Delete
     h(UI.ConfirmModal, {
       open: !!confirmDel, onClose: () => setConfirmDel(null),
       onConfirm: () => handleDel(confirmDel),

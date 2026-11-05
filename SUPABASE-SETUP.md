@@ -42,6 +42,17 @@ Trade screenshots are uploaded to the private `trade-screenshots` bucket. The da
 
 Allowed images: PNG, JPG/JPEG, WEBP. Max size: 8 MB.
 
+## 8) Password reset
+
+The reset link is sent from the app (Dashboard avatar, Account settings, Send reset link) with `resetPasswordForEmail`. For the link to land back on the app:
+
+- In Authentication > URL Configuration, set Site URL to your deployed address and add it (and `http://127.0.0.1:5500` for local work) to Redirect URLs.
+- The email content comes from Authentication > Emails > Reset Password. Keep the default link template, because the app shows its own "Atur kata sandi baru" screen when it opens a recovery link.
+
+## 9) Registering an existing email
+
+With Confirm email turned on, Supabase answers a duplicate sign-up with a user that has no identities, and the app shows "Email ini sudah terdaftar". With Confirm email turned off it returns a user already exists error, which gets the same message.
+
 ## Important notes
 
 - The old app stored data in each browser's IndexedDB. The new version stores data per authenticated Supabase user. Existing IndexedDB data is not automatically uploaded; use the export/import migration above.

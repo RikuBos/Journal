@@ -1,10 +1,8 @@
-// React hooks - h is available globally via window.h set in db.js
 var useState = React.useState;
 var useEffect = React.useEffect;
 var useRef = React.useRef;
 var useCallback = React.useCallback;
 
-// ── ICONS ──────────────────────────────────────────────────
 var ICON_PATHS = {
   dashboard:  `<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>`,
   trades:     `<path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>`,
@@ -41,6 +39,7 @@ var ICON_PATHS = {
   book:       `<path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/>`,
   archive:    `<polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/>`,
   activity:   `<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>`,
+  wallet:     `<path d="M3 7a2 2 0 012-2h13v4"/><path d="M3 7v11a2 2 0 002 2h14a1 1 0 001-1v-3"/><path d="M21 12h-5a2 2 0 000 4h5z"/>`,
   dollar:     `<line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/>`,
   copy:       `<rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>`,
   lock:       `<rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/>`,
@@ -64,7 +63,6 @@ function Icon({ name, size = 15, color = 'currentColor', className = '' }) {
   });
 }
 
-// ── TOAST SYSTEM ───────────────────────────────────────────
 var _addToast = null;
 function ToastProvider({ children }) {
   const [toasts, setToasts] = useState([]);
@@ -92,7 +90,6 @@ function toast(msg, type = 'info', ms = 3000) {
   if (_addToast) _addToast(msg, type, ms);
 }
 
-// ── MODAL ──────────────────────────────────────────────────
 function Modal({ open, onClose, title, children, footer, size = '' }) {
   useEffect(() => {
     const handler = (e) => { if (e.key === 'Escape' && open) onClose(); };
@@ -100,7 +97,7 @@ function Modal({ open, onClose, title, children, footer, size = '' }) {
     return () => document.removeEventListener('keydown', handler);
   }, [open, onClose]);
   if (!open) return null;
-  return h('div', { className: 'modal-overlay', onMouseDown: e => e.target === e.currentTarget && onClose() },
+  return ReactDOM.createPortal(h('div', { className: 'modal-overlay', onMouseDown: e => e.target === e.currentTarget && onClose() },
     h('div', { className: `modal ${size}` },
       h('div', { className: 'modal-header' },
         h('span', { className: 'modal-title' }, title),
@@ -109,10 +106,9 @@ function Modal({ open, onClose, title, children, footer, size = '' }) {
       h('div', { className: 'modal-body' }, children),
       footer && h('div', { className: 'modal-footer' }, footer)
     )
-  );
+  ), document.body);
 }
 
-// ── CONFIRM MODAL ──────────────────────────────────────────
 function ConfirmModal({ open, onClose, onConfirm, title, message, danger = true }) {
   return h(Modal, { open, onClose, title,
     footer: h(React.Fragment, null,
@@ -122,7 +118,6 @@ function ConfirmModal({ open, onClose, onConfirm, title, message, danger = true 
   }, h('p', { style: { fontSize: 13, color: 'var(--t2)', lineHeight: 1.6 } }, message));
 }
 
-// ── SHARED DISPLAY COMPONENTS ──────────────────────────────
 function GradeBadge({ grade }) {
   const cls = { 'A+': 'grade-aplus', A: 'grade-a', B: 'grade-b', C: 'grade-c', D: 'grade-d', F: 'grade-f' }[grade] || 'grade-c';
   return h('span', { className: `grade ${cls}` }, grade);
@@ -171,7 +166,6 @@ function MetricRow({ label, value, cls = '' }) {
   );
 }
 
-// ── CHART TOOLTIP ──────────────────────────────────────────
 function ChartTooltip({ active, payload, label }) {
   if (!active || !payload?.length) return null;
   return h('div', { className: 'chart-tip' },
@@ -185,7 +179,6 @@ function ChartTooltip({ active, payload, label }) {
   );
 }
 
-// ── LIGHTBOX ──────────────────────────────────────────────
 function Lightbox({ src, onClose }) {
   if (!src) return null;
   return h('div', { className: 'lightbox', onClick: onClose },
@@ -194,15 +187,11 @@ function Lightbox({ src, onClose }) {
   );
 }
 
-// ── EXPORT ─────────────────────────────────────────────────
-
-// ── CONTEXT MENU (for double-click edit/delete) ───────────
 var _contextMenu = null;
 function setGlobalContextMenu(fn) { _contextMenu = fn; }
 
 function ContextMenuProvider({ children }) {
   var [menu, setMenu] = useState(null);
-  // { x, y, items: [{label, icon, action, danger}] }
 
   setGlobalContextMenu(setMenu);
 
@@ -241,9 +230,6 @@ function showContextMenu(e, items) {
   }
 }
 
-
-// ── CUSTOM DROPDOWN ────────────────────────────────────────
-// ── CUSTOM DROPDOWN — Portal-based, immune to parent transforms ──
 var _ddPortal = null;
 function getPortal() {
   if (!_ddPortal) {
@@ -261,7 +247,6 @@ function CustomDropdown({ value, onChange, options, placeholder }) {
   var wrapRef  = React.useRef(null);
   var menuRef  = React.useRef(null);
 
-  // Calculate position from trigger element
   function calcPos() {
     if (!wrapRef.current) return null;
     var r = wrapRef.current.getBoundingClientRect();
@@ -280,7 +265,6 @@ function CustomDropdown({ value, onChange, options, placeholder }) {
     setOpen(function(o) { return !o; });
   }
 
-  // Close on outside click
   React.useEffect(function() {
     if (!open) return;
     function onDown(e) {
@@ -288,7 +272,6 @@ function CustomDropdown({ value, onChange, options, placeholder }) {
       if ((w && w.contains(e.target)) || (m && m.contains(e.target))) return;
       setOpen(false);
     }
-    // tiny delay so the open-click doesn't immediately close
     var t = setTimeout(function() {
       document.addEventListener('mousedown', onDown, true);
     }, 0);
@@ -298,7 +281,6 @@ function CustomDropdown({ value, onChange, options, placeholder }) {
     };
   }, [open]);
 
-  // Reposition on scroll / resize while open
   React.useEffect(function() {
     if (!open) return;
     function onScroll() {
@@ -320,7 +302,6 @@ function CustomDropdown({ value, onChange, options, placeholder }) {
     ? (sel.label !== undefined && sel.label !== null ? String(sel.label) : String(sel))
     : (placeholder || 'Select');
 
-  // Menu rendered via portal so parent overflow/transform can't clip it
   var menu = open
     ? ReactDOM.createPortal(
         h('div', {
@@ -361,7 +342,6 @@ function CustomDropdown({ value, onChange, options, placeholder }) {
     menu
   );
 }
-
 
 window.UI = {
   Icon, Modal, ConfirmModal, GradeBadge, DirBadge,

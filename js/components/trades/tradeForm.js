@@ -2,45 +2,15 @@ var useFS = React.useState;
 var useFM = React.useMemo;
 var useFR = React.useRef;
 
-function RiskCalc({ account, instrument, onApply }) {
-  var [v, setV] = useFS({
-    balance: account?.startingBalance || 5000,
-    riskPct: 1, entry: '', sl: '', tp: '', size: 1,
-  });
-  var set = function(k, val) { setV(function(p) { return Object.assign({}, p, {[k]: val}); }); };
-  var pv       = getPointValue(instrument || 'NQ');
-  var riskAmt  = v.entry && v.sl && v.size
-    ? Calc.pointRisk(+v.entry, +v.sl, +v.size, instrument)
-    : (v.balance * v.riskPct) / 100;
-  var rr       = v.entry && v.sl && v.tp ? Calc.rr(+v.entry, +v.sl, +v.tp) : null;
-  var potProfit = rr != null ? riskAmt * rr : null;
-  return h('div', { style: { background: 'rgba(8,9,13,0.6)', border: '1px solid var(--border-1)', borderRadius: 8, padding: 14, marginBottom: 14 } },
-    h('div', { className: 'section-heading' }, 'Risk Calculator'),
-    h('div', { className: 'form-row' },
-      h('div', { className: 'input-group' }, h('label', { className: 'input-label' }, 'Balance'), h('input', { className: 'input-field', type: 'number', value: v.balance, onChange: e => set('balance', +e.target.value) })),
-      h('div', { className: 'input-group' }, h('label', { className: 'input-label' }, 'Risk %'), h('input', { className: 'input-field', type: 'number', step: 0.1, value: v.riskPct, onChange: e => set('riskPct', +e.target.value) })),
-      h('div', { className: 'input-group' }, h('label', { className: 'input-label' }, 'Entry'), h('input', { className: 'input-field', type: 'number', step: 'any', value: v.entry, onChange: e => set('entry', e.target.value) })),
-      h('div', { className: 'input-group' }, h('label', { className: 'input-label' }, 'Stop Loss'), h('input', { className: 'input-field', type: 'number', step: 'any', value: v.sl, onChange: e => set('sl', e.target.value) })),
-      h('div', { className: 'input-group' }, h('label', { className: 'input-label' }, 'Take Profit'), h('input', { className: 'input-field', type: 'number', step: 'any', value: v.tp, onChange: e => set('tp', e.target.value) })),
-      h('div', { className: 'input-group' }, h('label', { className: 'input-label' }, 'Size'), h('input', { className: 'input-field', type: 'number', step: 'any', value: v.size, onChange: e => set('size', e.target.value) })),
-    ),
-    h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10, marginBottom: onApply ? 12 : 0 } },
-      h('div', { className: 'calc-display' }, h('div', { className: 'label' }, 'Risk Amount'), h('div', { className: 'value text-neg' }, Calc.fmt.currency(riskAmt))),
-      h('div', { className: 'calc-display' }, h('div', { className: 'label' }, 'Potential Profit'), h('div', { className: 'value text-pos' }, potProfit != null ? Calc.fmt.currency(potProfit) : '—')),
-      h('div', { className: 'calc-display' }, h('div', { className: 'label' }, 'R:R'), h('div', { className: 'value' }, rr != null ? `1 : ${rr.toFixed(2)}` : '—')),
-    ),
-    onApply && h('button', { className: 'btn btn-secondary btn-sm', onClick: () => onApply({ entry: v.entry, sl: v.sl, tp: v.tp, size: v.size, riskPct: v.riskPct, riskAmt }) },
-      h(UI.Icon, { name: 'zap', size: 12 }), 'Apply to Trade'
-    )
-  );
-}
-
 function TradeForm({ trade, onSave, onClose }) {
-  const { activeAccount, accounts, settings } = useApp();
+  const { activeAccount, accounts, settings, trades } = useApp();
   const [tab,         setTab]    = useFS('basic');
-  const [showCalc,    setCalc]   = useFS(false);
   const [images,      setImages] = useFS(trade?.screenshots || []);
   const [lightbox,    setLightbox] = useFS(null);
+
+  const recentTrades = (trades || []).slice().sort((a, b) => (b.createdAt || Calc.tradeStamp(b)).localeCompare(a.createdAt || Calc.tradeStamp(a)));
+  const lastTrade = recentTrades.find(t => t.positionSize && activeAccount && t.accountId === activeAccount.id) || recentTrades.find(t => t.positionSize);
+  const lastSize  = lastTrade ? lastTrade.positionSize : 1;
 
   const now    = new Date();
   const pad    = n => String(n).padStart(2, '0');
@@ -59,8 +29,8 @@ function TradeForm({ trade, onSave, onClose }) {
     stopLoss:        trade?.stopLoss || '',
     takeProfit:      trade?.takeProfit || '',
     exitPrice:       trade?.exitPrice || '',
-    positionSize:    trade?.positionSize || 1,
-    riskPercentage:  trade?.riskPercentage || settings?.defaultRisk || 1,
+    positionSize:    trade?.positionSize || lastSize,
+    riskPercentage:  trade?.riskPercentage || '',
     setup:           trade?.setup || '',
     marketCondition: trade?.marketCondition || 'Trending Up',
     timeframe:       trade?.timeframe || '15m',
@@ -93,32 +63,16 @@ function TradeForm({ trade, onSave, onClose }) {
   });
   const set = (k, v) => setF(p => ({ ...p, [k]: v }));
 
-  // Auto-calcs
-  // Auto-calculate position size from risk% + entry/SL
-  var autoPositionSize = useFM(function() {
-    if (!f.entryPrice || !f.stopLoss || !f.riskPercentage || !activeAccount) return null;
-    var bal     = activeAccount.startingBalance || 0;
-    var riskAmt = bal * (+f.riskPercentage / 100);
-    var pts     = Math.abs(+f.entryPrice - +f.stopLoss);
-    var pv      = getPointValue(f.instrument);
-    if (!pts || !pv) return null;
-    var sz = riskAmt / (pts * pv);
-    return Math.round(sz * 100) / 100; // 2 decimal places
-  }, [f.entryPrice, f.stopLoss, f.riskPercentage, f.instrument, activeAccount]);
-
-  // Auto-fill position size when calculated and field is empty
-  var prevAutoSz = React.useRef(null);
-  React.useEffect(function() {
-    if (autoPositionSize && autoPositionSize !== prevAutoSz.current) {
-      prevAutoSz.current = autoPositionSize;
-      set('positionSize', autoPositionSize);
-    }
-  }, [autoPositionSize]);
-
   var autoRisk = useFM(function() {
     if (!f.entryPrice || !f.stopLoss || !f.positionSize) return null;
     return Calc.pointRisk(+f.entryPrice, +f.stopLoss, +f.positionSize, f.instrument);
   }, [f.entryPrice, f.stopLoss, f.positionSize, f.instrument]);
+
+  var riskAccount = (accounts || []).find(function(a) { return a.id === f.accountId; }) || activeAccount;
+  var autoRiskPct = useFM(function() {
+    if (autoRisk == null || !riskAccount || !riskAccount.startingBalance) return null;
+    return (autoRisk / riskAccount.startingBalance) * 100;
+  }, [autoRisk, riskAccount]);
 
   var autoRR = useFM(function() {
     if (!f.entryPrice || !f.stopLoss || !f.takeProfit) return null;
@@ -215,7 +169,22 @@ function TradeForm({ trade, onSave, onClose }) {
             options: (function() {
               var list = INSTRUMENTS.concat((settings && settings.customInstruments) || []);
               if (f.instrument && list.indexOf(f.instrument) < 0) list = list.concat(f.instrument);
-              return list.map(function(i) { return { value: i, label: i }; });
+              var lastUsed = {};
+              (trades || []).forEach(function(t) {
+                if (!t.instrument) return;
+                var stamp = t.createdAt || Calc.tradeStamp(t);
+                if (!lastUsed[t.instrument] || stamp > lastUsed[t.instrument]) lastUsed[t.instrument] = stamp;
+              });
+              return list
+                .map(function(name, idx) { return { name: name, idx: idx }; })
+                .sort(function(a, b) {
+                  var sa = lastUsed[a.name], sb = lastUsed[b.name];
+                  if (sa && sb) return sb.localeCompare(sa);
+                  if (sa) return -1;
+                  if (sb) return 1;
+                  return a.idx - b.idx;
+                })
+                .map(function(x) { return { value: x.name, label: x.name }; });
             })(),
             placeholder: 'Select Instrument',
           })
@@ -244,16 +213,18 @@ function TradeForm({ trade, onSave, onClose }) {
         numField('Take Profit',    'takeProfit',   'any'),
         numField('Exit Price',     'exitPrice',    'any'),
         numField('Position Size',  'positionSize', 'any'),
-        numField('Risk %',         'riskPercentage', 0.1),
+        h('div', { className: 'input-group' },
+          h('label', { className: 'input-label' }, 'Risk % (auto)'),
+          h('input', { className: 'input-field', readOnly: true, tabIndex: -1, placeholder: '—',
+            value: autoRiskPct != null ? '-' + autoRiskPct.toFixed(2) + '%' : '',
+            style: { color: 'var(--red)', cursor: 'default' } })
+        ),
       ),
-      // Auto-calc display
       h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10, marginBottom: 14 } },
         h('div', { className: 'calc-display' }, h('div', { className: 'label' }, 'Risk Amount (auto)'), h('div', { className: `value ${autoRisk ? 'text-neg' : 'text-muted'}` }, autoRisk != null ? Calc.fmt.currency(autoRisk) : '—')),
         h('div', { className: 'calc-display' }, h('div', { className: 'label' }, 'P/L (auto)'),         h('div', { className: `value ${autoPL == null ? 'text-muted' : autoPL >= 0 ? 'text-pos' : 'text-neg'}` }, autoPL != null ? Calc.fmt.currency(autoPL) : '—')),
         h('div', { className: 'calc-display' }, h('div', { className: 'label' }, 'R:R (auto)'),         h('div', { className: 'value' }, autoRR != null ? `1 : ${autoRR.toFixed(2)}` : '—')),
       ),
-      h('button', { className: 'btn btn-secondary btn-sm', style: { marginBottom: 14 }, onClick: () => setCalc(p => !p) }, h(UI.Icon, { name: 'zap', size: 12 }), showCalc ? 'Hide Calculator' : 'Risk Calculator'),
-      showCalc && h(RiskCalc, { account: activeAccount, instrument: f.instrument }),
     ),
 
     setup: h('div', null,

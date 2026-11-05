@@ -1,20 +1,15 @@
-// Point value per instrument (dollar value per 1 point move, per 1 contract/lot)
-// Futures: per contract. Forex: per standard lot (100,000 units). Crypto: varies.
 var POINT_VALUES = {
-  // US Equity Futures (CME)
-  'NQ':   10,      // Nasdaq-100 E-mini: $10 per point (per 0.25 tick = $2.50)
-  'MNQ':   1,      // Micro Nasdaq-100: $1 per point
-  'ES':   50,      // S&P 500 E-mini: $50 per point
-  'MES':   5,      // Micro S&P 500: $5 per point
-  'YM':    5,      // Dow Jones E-mini: $5 per point
-  'MYM':   0.50,   // Micro Dow: $0.50 per point
-  'RTY':  50,      // Russell 2000 E-mini: $50 per point
-  // Commodities
-  'CL':  1000,     // Crude Oil: $1000 per point ($10 per tick of 0.01)
-  'GC':   100,     // Gold: $100 per point ($10 per tick of 0.10)
-  'SI':  5000,     // Silver: $5000 per point
-  // Forex (per standard lot, pip value approx)
-  'EURUSD': 10,    // $10 per pip per standard lot
+  'NQ':   10,
+  'MNQ':   1,
+  'ES':   50,
+  'MES':   5,
+  'YM':    5,
+  'MYM':   0.50,
+  'RTY':  50,
+  'CL':  1000,
+  'GC':   100,
+  'SI':  5000,
+  'EURUSD': 10,
   'GBPUSD': 10,
   'USDJPY': 10,
   'GBPJPY': 10,
@@ -22,10 +17,8 @@ var POINT_VALUES = {
   'AUDUSD': 10,
   'NZDUSD': 10,
   'USDCHF': 10,
-  // Metals spot
-  'XAUUSD': 100,   // Gold spot: ~$100 per $1 move per lot
+  'XAUUSD': 100,
   'XAGUSD': 5000,
-  // Crypto (per coin, treat size as number of coins)
   'BTCUSD': 1,
   'ETHUSD': 1,
 };
@@ -96,7 +89,6 @@ var Calc = {
     return +(sum / closed.length).toFixed(2);
   },
 
-  // Historical worst peak-to-trough drawdown
   maxDrawdown(equityCurve) {
     if (!equityCurve.length) return { amount: 0, pct: 0 };
     var peak = equityCurve[0], maxDD = 0, maxDDPct = 0;
@@ -120,6 +112,53 @@ var Calc = {
     var dd    = Math.max(0, peak - current);
     var ddPct = peak > 0 ? (dd / peak) * 100 : 0;
     return { amount: +dd.toFixed(2), pct: +ddPct.toFixed(2), peak: +peak.toFixed(2) };
+  },
+
+  tradeStamp(t) { return (t.date || '') + 'T' + (t.time || '00:00'); },
+
+  currentMonthKey() {
+    var d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+  },
+
+  monthLabel(ym) {
+    var p = ym.split('-');
+    return new Date(+p[0], +p[1] - 1, 1).toLocaleString('en-US', { month: 'long', year: 'numeric' });
+  },
+
+  monthsWithTrades(trades) {
+    var seen = {};
+    trades.forEach(function(t) { if (t.status === 'Closed' && t.date) seen[t.date.slice(0, 7)] = true; });
+    return Object.keys(seen).sort().reverse();
+  },
+
+  monthSeries(trades, startingBalance, ym) {
+    var closed = trades.filter(function(t) { return t.status === 'Closed' && t.date; })
+      .sort(function(a, b) { return Calc.tradeStamp(a).localeCompare(Calc.tradeStamp(b)); });
+    var bal = startingBalance || 0, pl = 0, count = 0, wins = 0;
+    closed.forEach(function(t) { if (t.date.slice(0, 7) < ym) bal += (t.profitLoss || 0); });
+    var startBal = bal;
+    var points = [{ label: 'Start', balance: +bal.toFixed(2) }];
+    closed.forEach(function(t) {
+      if (t.date.slice(0, 7) !== ym) return;
+      var v = t.profitLoss || 0;
+      bal += v; pl += v; count++;
+      if (v > 0) wins++;
+      points.push({ label: t.date.slice(5), balance: +bal.toFixed(2) });
+    });
+    return { points: points, startBal: startBal, endBal: bal, pl: pl, count: count, wins: wins };
+  },
+
+  lastDays(trades, n) {
+    var byDate = {};
+    trades.forEach(function(t) { if (t.status === 'Closed' && t.date) byDate[t.date] = (byDate[t.date] || 0) + (t.profitLoss || 0); });
+    var out = [], now = new Date();
+    for (var i = n - 1; i >= 0; i--) {
+      var d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
+      var key = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+      out.push({ date: key.slice(5), pl: +(byDate[key] || 0).toFixed(2) });
+    }
+    return out;
   },
 
   dailyDrawdown(trades) {
@@ -194,16 +233,11 @@ var Calc = {
     };
   },
 
-
-  // Auto-calculate execution quality score (1-10)
-  // Based on: RR capture, rule compliance, mistake presence, news risk
   executionQuality(trade) {
     var score = 10;
 
-    // Rule violated: -2.5
     if (!trade.ruleFollowed) score -= 2.5;
 
-    // Mistake present: -1.5 per severity
     if (trade.mistake) {
       var sev = trade.mistakeSeverity;
       if (sev === 'Critical') score -= 3;
@@ -212,28 +246,20 @@ var Calc = {
       else                          score -= 1;
     }
 
-    // RR capture ratio: how much of planned RR was captured
-    // If closed trade: actual RR vs planned RR
     if (trade.status === 'Closed' && trade.entryPrice && trade.stopLoss && trade.takeProfit && trade.exitPrice) {
       var plannedRR = Math.abs(+trade.takeProfit - +trade.entryPrice) /
                      Math.abs(+trade.entryPrice - +trade.stopLoss);
       var actualRR  = trade.rMultiple || 0;
       if (plannedRR > 0) {
         var capture = actualRR / plannedRR;
-        // Full TP hit or beyond: no penalty
-        // Partial (50-99%): -0.5
-        // Very partial (<50%): -1.5
-        // Loss when plan said win: -2
         if (capture < 0)    score -= 2;
         else if (capture < 0.5) score -= 1.5;
         else if (capture < 1.0) score -= 0.5;
       }
     }
 
-    // Traded during news: -1
     if (trade.newsRisk) score -= 1;
 
-    // No setup or confirmation filled: -0.5 each
     if (!trade.setup)        score -= 0.5;
     if (!trade.confirmation) score -= 0.5;
 
@@ -265,7 +291,6 @@ var Calc = {
       currency = currency || 'USD';
       var prefix = { USD: '$', EUR: '€', GBP: '£', JPY: '¥', AUD: 'A$', CAD: 'C$' }[currency] || '';
       var abs = Math.abs(val);
-      // compact=true for places like sidebar chip, compact=false (default) = full number
       var str = (compact && abs >= 1000) ? (abs / 1000).toFixed(2) + 'k' : abs.toFixed(2);
       return prefix + str;
     },
@@ -286,7 +311,6 @@ var Calc = {
 
 window.Calc = Calc;
 
-// Account balance: starting balance + trade P/L - withdrawals
 function accountBalance(acc, totalPL) {
   if (!acc) return 0;
   var b = (acc.startingBalance || 0) + (totalPL || 0);

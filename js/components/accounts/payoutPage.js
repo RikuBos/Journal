@@ -1,10 +1,44 @@
+function sendPayoutToDiscord(settings, lines) {
+  if (!settings || !settings.discordEnabled || !settings.discordWebhookUrl) return;
+  fetch(settings.discordWebhookUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ content: '```\n' + lines.join('\n') + '\n```', username: settings.discordUsername || 'Trading Journal' }),
+  }).catch(function() {});
+}
 
-// ── BROKER PAYOUT — no rules, no buffer, direct withdrawal ──
+function nowStamp() {
+  var now = new Date();
+  var pad = function(n) { return (n < 10 ? '0' : '') + n; };
+  var date = now.getFullYear() + '-' + pad(now.getMonth() + 1) + '-' + pad(now.getDate());
+  var time = pad(now.getHours()) + ':' + pad(now.getMinutes());
+  return { date: date, time: time };
+}
+
+function PayoutHistoryTable({ rows, columns, onDelete }) {
+  return h('div', { className: 'table-wrap' },
+    h('table', { className: 'data-table' },
+      h('thead', null, h('tr', null, columns.map(function(col) { return h('th', { key: col.label }, col.label); }))),
+      h('tbody', null,
+        rows.map(function(row) {
+          return h('tr', { key: row.idx,
+            onContextMenu: function(e) {
+              UI.showContextMenu(e, [{ label: 'Delete payout', danger: true, action: function() { onDelete(row.idx); } }]);
+            } },
+            columns.map(function(col) { return h('td', { key: col.label, style: col.style ? col.style(row.rec) : null }, col.value(row.rec)); })
+          );
+        })
+      )
+    )
+  );
+}
+
 function BrokerPayoutView(props) {
   var acc = props.acc, accounts = props.accounts, accTrades = props.accTrades;
   var upsertAccount = props.upsertAccount, settings = props.settings;
   var [amount, setAmount] = React.useState('');
   var [tab,    setTab]    = React.useState('withdraw');
+  var [delIdx, setDelIdx] = React.useState(null);
 
   var totalPL   = accTrades.reduce(function(s, t) { return s + (t.profitLoss || 0); }, 0);
   var balance   = accountBalance(acc, totalPL);
@@ -12,44 +46,49 @@ function BrokerPayoutView(props) {
   var history   = acc.payoutHistory || [];
   var amt       = parseFloat(amount);
   var valid     = amt > 0 && amt <= balance + 0.0001;
+  var money     = function(v) { return '$' + (v || 0).toFixed(2); };
 
   async function doWithdraw() {
     if (!valid) return;
-    var now  = new Date();
-    var date = now.toISOString().slice(0, 10);
-    var time = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+    var st = nowStamp();
     var after = balance - amt;
-    var record = { date: date, time: time, amount: amt, balanceBefore: balance, balanceAfter: after };
+    var record = { date: st.date, time: st.time, amount: amt, balanceBefore: balance, balanceAfter: after };
     await upsertAccount(Object.assign({}, acc, {
       totalWithdrawn: withdrawn + amt,
       totalPayouts:   (acc.totalPayouts || 0) + amt,
       payoutHistory:  history.concat(record),
     }));
-
-    if (settings && settings.discordEnabled && settings.discordWebhookUrl) {
-      var msg = [
-        '===  PAYOUT  ===',
-        'Account  : ' + acc.name + ' (Broker)',
-        'Date     : ' + date + '  ' + time,
-        '------------------------',
-        'Payout   : $' + amt.toFixed(2),
-        'Balance  : $' + after.toFixed(2),
-      ].join('\n');
-      fetch(settings.discordWebhookUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: '```\n' + msg + '\n```', username: settings.discordUsername || 'Trading Journal' }),
-      }).catch(function() {});
-    }
+    sendPayoutToDiscord(settings, [
+      '===  PAYOUT  ===',
+      'Account  : ' + acc.name + ' (' + acc.propFirm + ')',
+      'Date     : ' + st.date + '  ' + st.time,
+      '------------------------',
+      'Payout   : ' + money(amt),
+      'Balance  : ' + money(after),
+    ]);
     setAmount('');
-    UI.toast('Payout $' + amt.toFixed(2) + ' recorded', 'success');
+    UI.toast('Payout ' + money(amt) + ' recorded', 'success');
   }
+
+  async function removeRecord() {
+    var rec = history[delIdx];
+    if (!rec) { setDelIdx(null); return; }
+    await upsertAccount(Object.assign({}, acc, {
+      totalWithdrawn: Math.max(0, withdrawn - (rec.amount || 0)),
+      totalPayouts:   Math.max(0, (acc.totalPayouts || 0) - (rec.amount || 0)),
+      payoutHistory:  history.filter(function(_, i) { return i !== delIdx; }),
+    }));
+    setDelIdx(null);
+    UI.toast('Payout deleted', 'success');
+  }
+
+  var rows = history.map(function(rec, idx) { return { rec: rec, idx: idx }; }).reverse();
 
   return h('div', null,
     h('div', { className: 'page-header', style: { paddingBottom: 0 } },
       h('div', null,
         h('div', { className: 'page-title' }, 'Payout'),
-        h('div', { className: 'page-subtitle' }, 'Broker   ' + acc.name)
+        h('div', { className: 'page-subtitle' }, acc.propFirm + '   ' + acc.name)
       ),
       h(UI.CustomDropdown, {
         value: acc.id, onChange: props.setSelAcc,
@@ -63,20 +102,20 @@ function BrokerPayoutView(props) {
     ),
     h('div', { className: 'page-body' },
       tab === 'withdraw' && h('div', null,
-        h('div', { className: 'grid-3 mb-16' },
+        h('div', { className: 'grid-3 mb-24' },
           h('div', { className: 'stat-block' },
             h('div', { className: 'stat-label' }, 'Balance'),
-            h('div', { className: 'stat-value' }, '$' + balance.toFixed(2)),
+            h('div', { className: 'stat-value' }, money(balance)),
             h('div', { className: 'stat-sub' }, 'Available to withdraw')
           ),
           h('div', { className: 'stat-block' },
             h('div', { className: 'stat-label' }, 'Total Withdrawn'),
-            h('div', { className: 'stat-value positive' }, '$' + withdrawn.toFixed(2)),
+            h('div', { className: 'stat-value positive' }, money(withdrawn)),
             h('div', { className: 'stat-sub' }, history.length + ' payouts total')
           ),
           h('div', { className: 'stat-block' },
             h('div', { className: 'stat-label' }, 'Balance After'),
-            h('div', { className: 'stat-value' }, '$' + (valid ? (balance - amt) : balance).toFixed(2)),
+            h('div', { className: 'stat-value' }, money(valid ? balance - amt : balance)),
             h('div', { className: 'stat-sub' }, 'No buffer, no rules')
           )
         ),
@@ -95,35 +134,31 @@ function BrokerPayoutView(props) {
             ),
             h('button', { className: 'btn btn-primary', style: { width: '100%', justifyContent: 'center', opacity: valid ? 1 : 0.45 },
               disabled: !valid, onClick: doWithdraw },
-              'Payout' + (valid ? '  $' + amt.toFixed(2) : ''))
+              'Payout' + (valid ? '  ' + money(amt) : ''))
           )
         )
       ),
-      tab === 'history' && (history.length === 0
+      tab === 'history' && (rows.length === 0
         ? h('div', { className: 'empty-state' },
             h('div', { className: 'empty-title' }, 'No payouts yet'),
             h('div', { className: 'empty-desc' }, 'Completed payouts will appear here')
           )
-        : h('div', { className: 'table-wrap' },
-            h('table', { className: 'data-table' },
-              h('thead', null, h('tr', null,
-                ['Date', 'Time', 'Balance Before', 'Payout', 'Balance After'].map(function(col) { return h('th', { key: col }, col); })
-              )),
-              h('tbody', null,
-                history.slice().reverse().map(function(p, i) {
-                  return h('tr', { key: i },
-                    h('td', null, p.date),
-                    h('td', null, p.time || ''),
-                    h('td', null, '$' + (p.balanceBefore || 0).toFixed(2)),
-                    h('td', { style: { color: 'var(--green)', fontWeight: 600 } }, '$' + (p.amount || 0).toFixed(2)),
-                    h('td', null, '$' + (p.balanceAfter || 0).toFixed(2))
-                  );
-                })
-              )
-            )
-          )
+        : h(PayoutHistoryTable, {
+            rows: rows, onDelete: setDelIdx,
+            columns: [
+              { label: 'Date', value: function(r) { return r.date; } },
+              { label: 'Time', value: function(r) { return r.time || ''; } },
+              { label: 'Balance Before', value: function(r) { return money(r.balanceBefore); } },
+              { label: 'Payout', value: function(r) { return money(r.amount); }, style: function() { return { color: 'var(--green)', fontWeight: 600 }; } },
+              { label: 'Balance After', value: function(r) { return money(r.balanceAfter); } },
+            ],
+          })
       )
-    )
+    ),
+    h(UI.ConfirmModal, {
+      open: delIdx !== null, onClose: function() { setDelIdx(null); }, onConfirm: removeRecord,
+      title: 'Delete payout', message: 'This payout will be removed and its amount returns to the account balance.',
+    })
   );
 }
 
@@ -131,6 +166,10 @@ function PayoutPage() {
   var { accounts, activeAccountId, upsertAccount, trades, activeAccount, settings } = useApp();
   var [selectedAccId, setSelAcc] = React.useState(activeAccountId || '');
   var [tab, setTab] = React.useState('calculator');
+  var [amountStr, setAmountStr] = React.useState('');
+  var [delIdx, setDelIdx] = React.useState(null);
+
+  React.useEffect(function() { setAmountStr(''); }, [selectedAccId]);
 
   var acc = React.useMemo(function() {
     return accounts.find(function(a) { return a.id === selectedAccId; }) || activeAccount;
@@ -146,7 +185,6 @@ function PayoutPage() {
     var history   = acc.payoutHistory || [];
     var last      = history.length ? history[history.length - 1] : null;
     var lastAt    = last ? (last.at || (last.date + 'T23:59')) : null;
-    // only trades after the last payout count for the current cycle
     var cycleTrades = lastAt
       ? accTrades.filter(function(t) { return ((t.date || '') + 'T' + (t.time || '00:00')) > lastAt; })
       : accTrades;
@@ -158,9 +196,7 @@ function PayoutPage() {
     var cycleProfit = Math.max(0, currentBal - startBal);
     var split       = (acc.profitSplit || 90) / 100;
     var withdrawGross = Math.max(0, cycleProfit - buffer);
-    var takeHome    = withdrawGross * split;
 
-    // consistency: best winning day must not exceed X% of the cycle profit
     var consistencyPct = null, consistencyPasses = true;
     if (acc.consistencyRule) {
       var byDay = {};
@@ -181,7 +217,7 @@ function PayoutPage() {
 
     return {
       buffer: buffer, currentBal: currentBal, startBal: startBal, cycleProfit: cycleProfit,
-      split: split, withdrawGross: withdrawGross, takeHome: takeHome,
+      split: split, withdrawGross: withdrawGross,
       consistencyPct: consistencyPct, consistencyPasses: consistencyPasses,
       growthRequired: growthRequired, growthMet: growthMet, growthRemaining: growthRemaining,
       isOnDemand: isOnDemand,
@@ -189,46 +225,70 @@ function PayoutPage() {
     };
   }, [acc, accTrades]);
 
-  async function doPayout() {
-    if (!acc || !calc || !calc.canPayout) return;
-    var now  = new Date();
-    var pad  = function(n) { return (n < 10 ? '0' : '') + n; };
-    var date = now.getFullYear() + '-' + pad(now.getMonth() + 1) + '-' + pad(now.getDate());
-    var time = pad(now.getHours()) + ':' + pad(now.getMinutes());
-    var balanceAfter = calc.currentBal - calc.withdrawGross;
+  function pick() {
+    if (!calc) return { withdraw: 0, takeHome: 0, valid: true };
+    var a = parseFloat(amountStr);
+    var ok = amountStr !== '' && a > 0 && a <= calc.withdrawGross + 0.0001;
+    var w = ok ? a : calc.withdrawGross;
+    return { withdraw: w, takeHome: w * calc.split, valid: amountStr === '' || ok };
+  }
 
+  async function doPayout() {
+    var pk = pick();
+    if (!acc || !calc || !calc.canPayout || !pk.valid) return;
+    var st = nowStamp();
+    var balanceAfter = calc.currentBal - pk.withdraw;
     var record = {
-      date: date, time: time, at: date + 'T' + time,
+      date: st.date, time: st.time, at: st.date + 'T' + st.time,
       balanceBefore: calc.currentBal, balanceAfter: balanceAfter,
       cycleProfit: calc.cycleProfit, buffer: calc.buffer,
-      withdrawn: calc.withdrawGross, profitSplit: acc.profitSplit || 90,
-      takeHome: calc.takeHome,
+      withdrawn: pk.withdraw, profitSplit: acc.profitSplit || 90,
+      takeHome: pk.takeHome,
     };
     await upsertAccount(Object.assign({}, acc, {
       payoutHistory:     (acc.payoutHistory || []).concat(record),
-      totalPayouts:      (acc.totalPayouts || 0) + calc.takeHome,
-      totalWithdrawn:    (acc.totalWithdrawn || 0) + calc.withdrawGross,
+      totalPayouts:      (acc.totalPayouts || 0) + pk.takeHome,
+      totalWithdrawn:    (acc.totalWithdrawn || 0) + pk.withdraw,
       cycleStartBalance: balanceAfter,
     }));
+    sendPayoutToDiscord(settings, [
+      '===  PAYOUT  ===',
+      'Account  : ' + acc.name + ' (' + acc.propFirm + ')',
+      'Date     : ' + st.date + '  ' + st.time,
+      '------------------------',
+      'Payout   : $' + pk.takeHome.toFixed(2) + ' (after buffer)',
+      'Buffer   : $' + calc.buffer.toFixed(2),
+      '------------------------',
+      'Balance  : $' + balanceAfter.toFixed(2),
+    ]);
+    setAmountStr('');
+    UI.toast('Payout $' + pk.takeHome.toFixed(2) + ' recorded', 'success');
+  }
 
-    if (settings && settings.discordEnabled && settings.discordWebhookUrl) {
-      var msg = [
-        '===  PAYOUT  ===',
-        'Account  : ' + acc.name + ' (' + acc.propFirm + ')',
-        'Date     : ' + date + '  ' + time,
-        '------------------------',
-        'Payout   : $' + calc.takeHome.toFixed(2) + ' (after buffer)',
-        'Buffer   : $' + calc.buffer.toFixed(2),
-        '------------------------',
-        'Balance  : $' + balanceAfter.toFixed(2),
-      ].join('\n');
-      fetch(settings.discordWebhookUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: '```\n' + msg + '\n```', username: settings.discordUsername || 'Trading Journal' }),
-      }).catch(function() {});
+  async function removeRecord() {
+    if (!acc) return;
+    var hist = acc.payoutHistory || [];
+    var rec = hist[delIdx];
+    if (!rec) { setDelIdx(null); return; }
+    var w  = rec.withdrawn !== undefined ? rec.withdrawn : 0;
+    var th = rec.takeHome !== undefined ? rec.takeHome : (rec.available !== undefined ? rec.available : (rec.netPayout || 0));
+    var cycleStart = acc.cycleStartBalance || acc.startingBalance;
+    var newStart;
+    if (delIdx === hist.length - 1) {
+      if (rec.balanceBefore !== undefined && rec.cycleProfit !== undefined) newStart = rec.balanceBefore - rec.cycleProfit;
+      else if (hist.length > 1 && hist[delIdx - 1].balanceAfter !== undefined) newStart = hist[delIdx - 1].balanceAfter;
+      else newStart = acc.startingBalance;
+    } else {
+      newStart = cycleStart + w;
     }
-    UI.toast('Payout $' + calc.takeHome.toFixed(2) + ' recorded', 'success');
+    await upsertAccount(Object.assign({}, acc, {
+      payoutHistory:     hist.filter(function(_, i) { return i !== delIdx; }),
+      totalPayouts:      Math.max(0, (acc.totalPayouts || 0) - th),
+      totalWithdrawn:    Math.max(0, (acc.totalWithdrawn || 0) - w),
+      cycleStartBalance: newStart,
+    }));
+    setDelIdx(null);
+    UI.toast('Payout deleted, balance restored', 'success');
   }
 
   if (!acc) return h('div', { className: 'page-header' },
@@ -245,7 +305,8 @@ function PayoutPage() {
     });
   }
 
-  var c = calc || {};
+  var c  = calc || {};
+  var pk = pick();
   var money = function(v) { return '$' + (v || 0).toFixed(2); };
   var chip = function(ok, yes, no) {
     return h('div', { style: {
@@ -268,14 +329,14 @@ function PayoutPage() {
   };
 
   var breakdown = [
-    ['Current Balance',               money(c.currentBal)],
-    ['Cycle Start',                   money(c.startBal)],
-    ['Cycle Profit',                  money(c.cycleProfit)],
-    ['Buffer kept in account',        money(c.buffer)],
-    ['Withdrawn from account',        money(c.withdrawGross)],
-    ['Your split (' + Math.round((c.split || 0) * 100) + '%)', money(c.takeHome)],
+    ['Current Balance',        money(c.currentBal)],
+    ['Cycle Start',            money(c.startBal)],
+    ['Cycle Profit',           money(c.cycleProfit)],
+    ['Buffer kept in account', money(c.buffer)],
+    ['Withdrawn from account', money(pk.withdraw)],
+    ['Your split (' + Math.round((c.split || 0) * 100) + '%)', money(pk.takeHome)],
   ];
-  var history = (acc.payoutHistory || []).slice().reverse();
+  var history = (acc.payoutHistory || []).map(function(rec, idx) { return { rec: rec, idx: idx }; }).reverse();
 
   return h('div', null,
     h('div', { className: 'page-header', style: { paddingBottom: 0 } },
@@ -314,7 +375,7 @@ function PayoutPage() {
           ),
           h('div', { className: 'stat-block' },
             h('div', { className: 'stat-label' }, 'Available to Pocket'),
-            h('div', { className: 'stat-value positive' }, money(c.takeHome)),
+            h('div', { className: 'stat-value positive' }, money(pk.takeHome)),
             h('div', { className: 'stat-sub' }, Math.round((c.split || 0) * 100) + '% split')
           )
         ),
@@ -323,6 +384,18 @@ function PayoutPage() {
           h('div', { className: 'glass-card' },
             h('div', { className: 'card-header' }, h('span', { className: 'card-title' }, 'Payout Breakdown')),
             h('div', { className: 'card-body' },
+              h('div', { className: 'input-group' },
+                h('label', { className: 'input-label' }, 'Withdraw amount'),
+                h('div', { style: { display: 'flex', gap: 8 } },
+                  h('input', { className: 'input-field', type: 'number', min: 0, step: 'any',
+                    placeholder: (c.withdrawGross || 0).toFixed(2), value: amountStr,
+                    onChange: function(e) { setAmountStr(e.target.value); } }),
+                  h('button', { className: 'btn btn-secondary', onClick: function() { setAmountStr(''); } }, 'Max')
+                ),
+                !pk.valid
+                  ? h('div', { className: 'input-hint', style: { color: 'var(--red)' } }, 'Amount must be above 0 and not more than ' + money(c.withdrawGross))
+                  : h('div', { className: 'input-hint' }, 'Max ' + money(c.withdrawGross) + '. Leave empty to withdraw the maximum.')
+              ),
               breakdown.map(function(row, i) {
                 return h('div', { key: i, className: 'metric-row' },
                   h('span', { className: 'metric-name' }, row[0]),
@@ -331,7 +404,7 @@ function PayoutPage() {
               }),
               h('div', { className: 'metric-row', style: { marginTop: 4, paddingTop: 14 } },
                 h('span', { style: { fontSize: 13.5, fontWeight: 700, color: 'var(--t1)' } }, 'You Take Home'),
-                h('span', { style: { fontSize: 16, fontWeight: 700, color: 'var(--green)' } }, money(c.takeHome))
+                h('span', { style: { fontSize: 16, fontWeight: 700, color: 'var(--green)' } }, money(pk.takeHome))
               )
             )
           ),
@@ -370,8 +443,8 @@ function PayoutPage() {
 
         h('div', { style: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, marginTop: 8 } },
           c.canPayout
-            ? h('button', { className: 'btn btn-primary', style: { padding: '12px 32px', fontSize: 14 }, onClick: doPayout },
-                'Request Payout  ' + money(c.takeHome))
+            ? h('button', { className: 'btn btn-primary', style: { padding: '12px 32px', fontSize: 14, opacity: pk.valid ? 1 : 0.45 }, disabled: !pk.valid, onClick: doPayout },
+                'Request Payout  ' + money(pk.takeHome))
             : h('div', { className: 'alert alert-warning', style: { margin: 0 } },
                 !c.growthMet
                   ? (c.isOnDemand ? 'Need ' + money(c.growthRemaining) + ' more profit to reach the 2% growth requirement' : 'No profit in this cycle yet')
@@ -387,29 +460,23 @@ function PayoutPage() {
             h('div', { className: 'empty-title' }, 'No payouts yet'),
             h('div', { className: 'empty-desc' }, 'Completed payouts will appear here')
           )
-        : h('div', { className: 'table-wrap' },
-            h('table', { className: 'data-table' },
-              h('thead', null, h('tr', null,
-                ['Date', 'Time', 'Balance Before', 'Withdrawn', 'Split', 'Take Home'].map(function(col) { return h('th', { key: col }, col); })
-              )),
-              h('tbody', null,
-                history.map(function(p, i) {
-                  var w  = p.withdrawn !== undefined ? p.withdrawn : p.grossProfit;
-                  var th = p.takeHome  !== undefined ? p.takeHome  : (p.available !== undefined ? p.available : p.netPayout);
-                  return h('tr', { key: i },
-                    h('td', null, p.date),
-                    h('td', null, p.time || ''),
-                    h('td', null, money(p.balanceBefore)),
-                    h('td', null, money(w)),
-                    h('td', null, (p.profitSplit || 90) + '%'),
-                    h('td', { style: { color: 'var(--green)', fontWeight: 600 } }, money(th))
-                  );
-                })
-              )
-            )
-          )
+        : h(PayoutHistoryTable, {
+            rows: history, onDelete: setDelIdx,
+            columns: [
+              { label: 'Date', value: function(r) { return r.date; } },
+              { label: 'Time', value: function(r) { return r.time || ''; } },
+              { label: 'Balance Before', value: function(r) { return money(r.balanceBefore); } },
+              { label: 'Withdrawn', value: function(r) { return money(r.withdrawn !== undefined ? r.withdrawn : r.grossProfit); } },
+              { label: 'Split', value: function(r) { return (r.profitSplit || 90) + '%'; } },
+              { label: 'Take Home', value: function(r) { return money(r.takeHome !== undefined ? r.takeHome : (r.available !== undefined ? r.available : r.netPayout)); }, style: function() { return { color: 'var(--green)', fontWeight: 600 }; } },
+            ],
+          })
       )
-    )
+    ),
+    h(UI.ConfirmModal, {
+      open: delIdx !== null, onClose: function() { setDelIdx(null); }, onConfirm: removeRecord,
+      title: 'Delete payout', message: 'This payout will be removed. The balance, cycle, split and buffer go back to how they were before it.',
+    })
   );
 }
 

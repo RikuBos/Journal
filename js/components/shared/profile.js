@@ -40,13 +40,11 @@ function Avatar({ user, size }) {
 function AccountModal({ open, onClose, user }) {
   var meta = (user && user.user_metadata) || {};
   var [username, setUsername] = React.useState(meta.username || '');
-  var [pw, setPw] = React.useState('');
-  var [pw2, setPw2] = React.useState('');
   var [busy, setBusy] = React.useState('');
   var fileRef = React.useRef(null);
 
   React.useEffect(function() {
-    if (open) { setUsername(meta.username || ''); setPw(''); setPw2(''); }
+    if (open) { setUsername(meta.username || ''); }
   }, [open]);
 
   if (!open || !user) return null;
@@ -87,14 +85,11 @@ function AccountModal({ open, onClose, user }) {
     }, 'Photo removed');
   }
 
-  function changePassword() {
-    if (pw.length < 6) { UI.toast('Password must be at least 6 characters', 'error'); return; }
-    if (pw !== pw2) { UI.toast('Passwords do not match', 'error'); return; }
-    return run('password', async function() {
-      var r = await window.sb.auth.updateUser({ password: pw });
+  function sendReset() {
+    return run('reset', async function() {
+      var r = await window.sb.auth.resetPasswordForEmail(user.email, { redirectTo: window.location.origin + window.location.pathname });
       if (r.error) throw r.error;
-      setPw(''); setPw2('');
-    }, 'Password updated');
+    }, 'Reset link sent to ' + user.email);
   }
 
   var section = { padding: '18px 0', borderBottom: '1px solid var(--border-1)' };
@@ -127,17 +122,9 @@ function AccountModal({ open, onClose, user }) {
     ),
 
     h('div', { style: { paddingTop: 18 } },
-      h('div', { className: 'form-row' },
-        h('div', { className: 'input-group' },
-          h('label', { className: 'input-label' }, 'New password'),
-          h('input', { className: 'input-field', type: 'password', autoComplete: 'new-password', value: pw, onChange: function(e) { setPw(e.target.value); } })
-        ),
-        h('div', { className: 'input-group' },
-          h('label', { className: 'input-label' }, 'Confirm password'),
-          h('input', { className: 'input-field', type: 'password', autoComplete: 'new-password', value: pw2, onChange: function(e) { setPw2(e.target.value); } })
-        )
-      ),
-      h('button', { className: 'btn btn-secondary', disabled: busy === 'password' || !pw, onClick: changePassword }, 'Update password')
+      h('div', { className: 'input-label' }, 'Password'),
+      h('div', { style: { fontSize: 12.5, color: 'var(--t3)', marginBottom: 12, lineHeight: 1.6 } }, 'A link to set a new password will be sent to your email.'),
+      h('button', { className: 'btn btn-secondary', disabled: busy === 'reset', onClick: sendReset }, busy === 'reset' ? 'Sending…' : 'Send reset link')
     )
   );
 }

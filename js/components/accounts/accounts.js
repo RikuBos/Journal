@@ -1,17 +1,86 @@
+function accountDeposits(acc) {
+  if (acc.depositHistory && acc.depositHistory.length) return acc.depositHistory;
+  return [{ date: (acc.createdAt || '').slice(0, 10), time: '', amount: acc.startingBalance || 0, initial: true }];
+}
+
+function DepositModal({ acc, onClose, onSave }) {
+  var [amount, setAmount] = React.useState('');
+  var amt = parseFloat(amount);
+  var valid = amt > 0;
+  async function save() {
+    if (!valid) return;
+    var st = nowStamp();
+    var deposits = accountDeposits(acc).concat({ date: st.date, time: st.time, amount: amt });
+    await onSave(Object.assign({}, acc, {
+      startingBalance: (acc.startingBalance || 0) + amt,
+      depositHistory: deposits,
+    }));
+    UI.toast('Deposit recorded', 'success');
+    onClose();
+  }
+  return h(UI.Modal, { open: !!acc, onClose: onClose, title: 'Add Deposit' },
+    h('div', { className: 'input-group' },
+      h('label', { className: 'input-label' }, 'Amount'),
+      h('input', { className: 'input-field', type: 'number', min: 0, step: 'any', placeholder: '0.00', autoFocus: true,
+        value: amount, onChange: function(e) { setAmount(e.target.value); },
+        onKeyDown: function(e) { if (e.key === 'Enter') save(); } })
+    ),
+    h('div', { style: { display: 'flex', justifyContent: 'flex-end', gap: 8 } },
+      h('button', { className: 'btn btn-secondary', onClick: onClose }, 'Cancel'),
+      h('button', { className: 'btn btn-primary', disabled: !valid, style: { opacity: valid ? 1 : 0.45 }, onClick: save }, 'Save deposit')
+    )
+  );
+}
+
+function AccountHistoryModal({ acc, onClose }) {
+  if (!acc) return null;
+  var money = function(v) { return '$' + (v || 0).toFixed(2); };
+  var rows = accountDeposits(acc).map(function(d) { return { date: d.date, time: d.time || '', type: 'Deposit', amount: d.amount }; })
+    .concat((acc.payoutHistory || []).map(function(p) { return { date: p.date, time: p.time || '', type: 'Payout', amount: p.amount }; }))
+    .sort(function(a, b) { return (b.date + ' ' + (b.time || '00:00')).localeCompare(a.date + ' ' + (a.time || '00:00')); });
+  var deposited = rows.filter(function(r) { return r.type === 'Deposit'; }).reduce(function(s, r) { return s + (r.amount || 0); }, 0);
+  var paid = rows.filter(function(r) { return r.type === 'Payout'; }).reduce(function(s, r) { return s + (r.amount || 0); }, 0);
+  return h(UI.Modal, { open: true, onClose: onClose, title: acc.name + ' History', size: 'lg' },
+    h('div', { style: { display: 'flex', gap: 28, marginBottom: 16, fontSize: 12.5, color: 'var(--t3)' } },
+      h('span', null, 'Deposited ', h('b', { style: { color: 'var(--green)' } }, money(deposited))),
+      h('span', null, 'Paid out ', h('b', { style: { color: 'var(--red)' } }, money(paid)))
+    ),
+    h('div', { className: 'table-wrap' },
+      h('table', { className: 'data-table' },
+        h('thead', null, h('tr', null, ['Date', 'Time', 'Type', 'Amount'].map(function(c) { return h('th', { key: c }, c); }))),
+        h('tbody', null,
+          rows.map(function(r, i) {
+            return h('tr', { key: i },
+              h('td', null, r.date),
+              h('td', null, r.time),
+              h('td', null, r.type),
+              h('td', { style: { color: r.type === 'Deposit' ? 'var(--green)' : 'var(--red)', fontWeight: 600 } }, money(r.amount))
+            );
+          })
+        )
+      )
+    )
+  );
+}
+
 function AccountsPage() {
   const { accounts, trades, upsertAccount, deleteAccount, switchAccount, activeAccountId } = useApp();
   const [showForm,   setShowForm]   = React.useState(false);
   const [editAcc,    setEditAcc]    = React.useState(null);
   const [confirmDel, setConfirmDel] = React.useState(null);
+  const [depositAcc, setDepositAcc] = React.useState(null);
+  const [historyAcc, setHistoryAcc] = React.useState(null);
 
   const getStats = (acc) => {
     const accTrades = trades.filter(t => t.accountId === acc.id && t.status === 'Closed');
     const totalPL   = accTrades.reduce((s, t) => s + (t.profitLoss || 0), 0);
     const wins      = accTrades.filter(t => (t.profitLoss||0) > 0).length;
-    const targPct   = acc.profitTarget > 0 ? (Math.max(0, totalPL) / acc.profitTarget) * 100 : 0;
+    const phasePL     = totalPL - (acc.phasePLBase || 0);
+    const phaseTarget = acc.phase === 'Phase 2' ? (acc.phase2Target || acc.profitTarget) : (acc.phase1Target || acc.profitTarget);
+    const targPct   = phaseTarget > 0 ? (Math.max(0, phasePL) / phaseTarget) * 100 : 0;
     const ddAmt     = Math.abs(Math.min(0, totalPL));
     const ddPct     = acc.maxLoss > 0 ? (ddAmt / acc.maxLoss) * 100 : 0;
-    return { totalPL, balance: accountBalance(acc, totalPL), targPct, ddPct, ddAmt, count: accTrades.length, winRate: accTrades.length ? wins/accTrades.length*100 : 0 };
+    return { totalPL, phasePL, phaseTarget, balance: accountBalance(acc, totalPL), targPct, ddPct, ddAmt, count: accTrades.length, winRate: accTrades.length ? wins/accTrades.length*100 : 0 };
   };
 
   const handleSave = async (acc) => { await upsertAccount(acc); UI.toast(acc.id ? 'Account updated' : 'Account created', 'success'); };
@@ -19,8 +88,7 @@ function AccountsPage() {
 
   return h('div', null,
     h('div', { className: 'page-header' },
-      h('div', null, h('div', { className: 'page-title' }, 'Accounts'), h('div', { className: 'page-subtitle' }, `${accounts.length} account${accounts.length !== 1 ? 's' : ''}`)),
-      h('button', { className: 'btn btn-primary', onClick: () => { setEditAcc(null); setShowForm(true); } }, 'New Account')
+      h('div', null, h('div', { className: 'page-title' }, 'Accounts'), h('div', { className: 'page-subtitle' }, `${accounts.length} account${accounts.length !== 1 ? 's' : ''}`))
     ),
     h('div', { className: 'page-body' },
       accounts.length === 0
@@ -32,11 +100,16 @@ function AccountsPage() {
               return h('div', { key: acc.id,
               className: 'account-card' + (isActive ? ' is-active' : ''),
               onContextMenu: function(e) { e.preventDefault();
-                UI.showContextMenu(e, [
+                var items = [
                   { label: 'Edit Account',    action: function() { setEditAcc(acc); setShowForm(true); } },
                   { label: 'Set as Active',  action: function() { switchAccount(acc.id); UI.toast('Account switched', 'success'); } },
-                  { label: 'Delete Account',   danger: true, action: function() { setConfirmDel(acc.id); } },
-                ]);
+                ];
+                if (acc.isBroker) {
+                  items.push({ label: 'Add Deposit', action: function() { setDepositAcc(acc); } });
+                  items.push({ label: 'History',     action: function() { setHistoryAcc(acc); } });
+                }
+                items.push({ label: 'Delete Account',   danger: true, action: function() { setConfirmDel(acc.id); } });
+                UI.showContextMenu(e, items);
               },
             },
                 h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 } },
@@ -55,22 +128,13 @@ function AccountsPage() {
                     h('div', { style: { fontSize: 10, color: 'var(--t3)', marginTop: 2 } }, `Started: ${Calc.fmt.currency(acc.startingBalance)}`)
                   )
                 ),
-                // Progress bars (not for broker accounts)
                 !acc.isBroker && h('div', { style: { marginBottom: 12 } },
-                  h('div', { style: { display: 'flex', justifyContent: 'space-between', fontSize: 10.5, color: 'var(--t3)', marginBottom: 4 } },
-                    h('span', null,
-                      acc.phase === 'Phase 2' ? 'Phase 2 Target' : 
-                      acc.phase === 'Phase 1' ? 'Phase 1 Target' : 'Profit Target'
-                    ),
-                    h('span', null,
-                      (function() {
-                        var target = acc.phase === 'Phase 2' ? (acc.phase2Target || acc.profitTarget) : acc.profitTarget;
-                        return s.targPct.toFixed(0) + '%  ·  ' + Calc.fmt.currency(s.totalPL) + ' / ' + Calc.fmt.currency(target);
-                      })()
-                    )
+                  acc.phase !== 'Funded' && h('div', { style: { display: 'flex', justifyContent: 'space-between', fontSize: 10.5, color: 'var(--t3)', marginBottom: 4 } },
+                    h('span', null, acc.phase === 'Phase 2' ? 'Phase 2 Target' : 'Phase 1 Target'),
+                    h('span', null, s.targPct.toFixed(0) + '%  ·  ' + Calc.fmt.currency(s.phasePL) + ' / ' + Calc.fmt.currency(s.phaseTarget))
                   ),
-                  h('div', { className: 'progress-track' }, h('div', { className: `progress-fill ${s.targPct >= 100 ? 'green' : 'blue'}`, style: { width: `${Math.min(100, s.targPct)}%` } })),
-                  h('div', { style: { display: 'flex', justifyContent: 'space-between', fontSize: 10.5, color: 'var(--t3)', marginTop: 8, marginBottom: 4 } },
+                  acc.phase !== 'Funded' && h('div', { className: 'progress-track' }, h('div', { className: `progress-fill ${s.targPct >= 100 ? 'green' : 'blue'}`, style: { width: `${Math.min(100, s.targPct)}%` } })),
+                  h('div', { style: { display: 'flex', justifyContent: 'space-between', fontSize: 10.5, color: 'var(--t3)', marginTop: acc.phase !== 'Funded' ? 8 : 0, marginBottom: 4 } },
                     h('span', null, 'Drawdown Used'),
                     h('span', { style: { color: s.ddPct > 70 ? 'var(--red)' : 'inherit' } }, `${s.ddPct.toFixed(0)}% · ${Calc.fmt.currency(s.ddAmt)} / ${Calc.fmt.currency(acc.maxLoss)}`)
                   ),
@@ -97,6 +161,8 @@ function AccountsPage() {
     h(UI.Modal, { open: showForm, onClose: () => { setShowForm(false); setEditAcc(null); }, title: editAcc ? 'Edit Account' : 'New Account', size: 'lg' },
       h(AccountForm, { account: editAcc, onSave: handleSave, onClose: () => { setShowForm(false); setEditAcc(null); } })
     ),
+    depositAcc && h(DepositModal, { acc: depositAcc, onClose: () => setDepositAcc(null), onSave: upsertAccount }),
+    historyAcc && h(AccountHistoryModal, { acc: accounts.find(a => a.id === historyAcc.id) || historyAcc, onClose: () => setHistoryAcc(null) }),
     h(UI.ConfirmModal, { open: !!confirmDel, onClose: () => setConfirmDel(null), onConfirm: () => handleDel(confirmDel), title: 'Delete Account', message: 'Delete this account? Trades will remain but the account record will be removed.' })
   );
 }
@@ -151,11 +217,9 @@ function CalendarPage() {
     h('div', { className: 'page-body' },
       h('div', { className: 'grid-2', style: { gap: 20 } },
         h('div', null,
-          // Day headers
           h('div', { className: 'cal-grid', style: { marginBottom: 5 } },
             ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(d => h('div', { key: d, className: 'cal-day-header' }, d))
           ),
-          // Days
           h('div', { className: 'cal-grid' },
             Array.from({ length: firstDay }).map((_, i) => h('div', { key: `e${i}`, className: 'cal-day cal-empty' })),
             Array.from({ length: daysInMonth }).map((_, i) => {
@@ -173,7 +237,6 @@ function CalendarPage() {
               );
             })
           ),
-          // Monthly summary
           h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 10, marginTop: 16 } },
             [
               { label: 'Month P/L',    val: Calc.fmt.currency(monthPL), cls: monthPL >= 0 ? 'text-pos' : 'text-neg' },
@@ -186,7 +249,6 @@ function CalendarPage() {
             ))
           )
         ),
-        // Selected day trades
         selDay
           ? h('div', null,
               h('div', { style: { fontSize: 13, fontWeight: 600, color: 'var(--t1)', marginBottom: 12 } }, `Trades on ${selDay}`),
@@ -222,7 +284,7 @@ function CalendarPage() {
 }
 
 function AnalyticsPage() {
-  const { accountTrades } = useApp();
+  const { accountTrades, activeAccount } = useApp();
   const [filterSession, setFS] = React.useState('');
   const [filterSetup,   setFSt] = React.useState('');
   const [filterDir,     setFD] = React.useState('');
@@ -321,6 +383,7 @@ function AnalyticsPage() {
         { id: 'setup',      label: 'By Setup' },
         { id: 'dayofweek',  label: 'Day of Week' },
         { id: 'compliance', label: 'Rule Compliance' },
+        { id: 'archive',    label: 'Archive' },
       ].map(t => h('div', { key: t.id, className: `page-tab ${tab === t.id ? 'active' : ''}`, onClick: () => setTab(t.id) }, t.label))
     ),
     h('div', { className: 'page-body' },
@@ -397,6 +460,8 @@ function AnalyticsPage() {
         );
       })()),
 
+      tab === 'archive' && h(EquityArchive, { trades: accountTrades, account: activeAccount }),
+
       tab === 'compliance' && h('div', null,
         h('div', { className: 'grid-2 mb-14' },
           ...[
@@ -425,6 +490,32 @@ function AnalyticsPage() {
         h('div', { className: 'alert alert-info' }, h(UI.Icon, { name: 'info', size: 13 }), `Overall rule compliance: ${Calc.fmt.pct(Calc.ruleCompliance(accountTrades))} of trades followed the plan.`)
       )
     )
+  );
+}
+
+function EquityArchive({ trades, account }) {
+  var months = Calc.monthsWithTrades(trades).filter(function(m) { return m !== Calc.currentMonthKey(); });
+  if (!account || months.length === 0) return h('div', { className: 'empty-state' },
+    h('div', { className: 'empty-title' }, 'No archived months yet'),
+    h('div', { className: 'empty-desc' }, 'When a month ends, its equity curve is kept here.')
+  );
+  return h('div', { className: 'grid-2' },
+    months.map(function(ym) {
+      var d  = Calc.monthSeries(trades, account.startingBalance, ym);
+      var wr = d.count ? (d.wins / d.count) * 100 : 0;
+      return h('div', { key: ym, className: 'glass-card' },
+        h('div', { className: 'card-header' },
+          h('span', { className: 'card-title' }, Calc.monthLabel(ym)),
+          h('span', { style: { fontSize: 12, fontWeight: 600, color: d.pl >= 0 ? 'var(--green)' : 'var(--red)' } }, Calc.fmt.currency(d.pl))
+        ),
+        h('div', { style: { padding: '6px 2px 2px' } }, d.points.length > 1 ? h(EquityLine, { points: d.points, startBal: d.startBal, height: 170 }) : null),
+        h('div', { style: { display: 'flex', gap: 24, flexWrap: 'wrap', padding: '10px 22px 16px', fontSize: 12, color: 'var(--t3)' } },
+          h('span', null, d.count + ' trades'),
+          h('span', null, wr.toFixed(0) + '% win rate'),
+          h('span', null, Calc.fmt.currency(d.startBal) + ' to ' + Calc.fmt.currency(d.endBal))
+        )
+      );
+    })
   );
 }
 

@@ -98,13 +98,7 @@ function PlaybookPage() {
 
   function SetupForm({ setup, onSave, onClose }) {
     const [f, setF] = React.useState(setup || { name:'', description:'', htfBias:[], poi:[], confirmation:[], entryModel:'', invalidation:'', target:'', riskRules:'', checklist:[], notes:'' });
-    var set = function(k, v) {
-    setF(function(prev) {
-      var next = Object.assign({}, prev, { [k]: v });
-      autoSave(next);
-      return next;
-    });
-  };
+    const set = (k, v) => setF(p => ({ ...p, [k]: v }));
     const tog = (key, val) => set(key, f[key].includes(val) ? f[key].filter(x => x !== val) : [...f[key], val]);
     const [item, setItem] = React.useState('');
     return h('div', null,
@@ -147,7 +141,6 @@ function PlaybookPage() {
       playbook.length === 0
         ? h(UI.EmptyState, { title: 'No setups defined', desc: 'Build your trading playbook — define setups, conditions, and checklists.', action: h('button', { className: 'btn btn-primary', onClick: () => setShowForm(true) }, 'Add Setup') })
         : h('div', { style: { display: 'grid', gridTemplateColumns: selected ? '280px 1fr' : 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16, transition: 'all 0.2s' } },
-            // Left: setup cards
             h('div', { style: { display: 'flex', flexDirection: 'column', gap: 10, maxHeight: selected ? '78vh' : 'none', overflowY: selected ? 'auto' : 'visible' } },
               playbook.map(s => h('div', {
               key: s.id, className: 'glass-card',
@@ -174,7 +167,6 @@ function PlaybookPage() {
                 )
               ))
             ),
-            // Right: setup detail
             selected && h('div', { className: 'glass-card' },
               h('div', { className: 'card-header' },
                 h('span', { className: 'card-title' }, selected.name),
@@ -265,13 +257,7 @@ function ReviewsPage() {
     const misMap = trs.filter(t => t.mistake).reduce((m, t) => { m[t.mistake] = (m[t.mistake]||0)+1; return m; }, {});
     const topMistake = Object.entries(misMap).sort((a,b) => b[1]-a[1])[0]?.[0] || ' ';
     const [f, setF] = React.useState({ whatWorked: existing?.whatWorked||'', whatFailed: existing?.whatFailed||'', needsImprovement: existing?.needsImprovement||'', nextWeekFocus: existing?.nextWeekFocus||'' });
-    var set = function(k, v) {
-    setF(function(prev) {
-      var next = Object.assign({}, prev, { [k]: v });
-      autoSave(next);
-      return next;
-    });
-  };
+    const set = (k, v) => setF(p => ({ ...p, [k]: v }));
     return h('div', null,
       h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 10, marginBottom: 16 } },
         [
@@ -437,13 +423,7 @@ function JournalPage() {
       actualMarketBehavior: existing?.actualMarketBehavior || '', emotionalState: existing?.emotionalState || 'Calm',
       lessons: existing?.lessons || '', tomorrowPlan: existing?.tomorrowPlan || '',
     });
-    var set = function(k, v) {
-    setF(function(prev) {
-      var next = Object.assign({}, prev, { [k]: v });
-      autoSave(next);
-      return next;
-    });
-  };
+    const set = (k, v) => setF(p => ({ ...p, [k]: v }));
     const ta = (label, key, ph) => h('div', { className: 'input-group' }, h('label', { className: 'input-label' }, label), h('textarea', { className: 'textarea-field', placeholder: ph, value: f[key], onChange: e => set(key, e.target.value) }));
     return h('div', null,
       h('div', { className: 'form-row' },
@@ -465,12 +445,10 @@ function JournalPage() {
 
   return h('div', null,
     h('div', { className: 'page-header' },
-      h('div', null, h('div', { className: 'page-title' }, 'Daily Journal'), h('div', { className: 'page-subtitle' }, 'Pre and post session notes')),
-      h('button', { className: 'btn btn-primary', onClick: () => setShowForm(true) }, current ? 'Edit Entry' : 'New Entry')
+      h('div', null, h('div', { className: 'page-title' }, 'Daily Journal'), h('div', { className: 'page-subtitle' }, 'Pre and post session notes'))
     ),
     h('div', { className: 'page-body' },
       h('div', { style: { display: 'grid', gridTemplateColumns: '188px 1fr', gap: 20 } },
-        // Left: date nav
         h('div', null,
           h('div', { style: { marginBottom: 10 } }, h('input', { type: 'date', className: 'input-field', value: selDate, onChange: e => setSelDate(e.target.value) })),
           h('div', { style: { display: 'flex', flexDirection: 'column', gap: 4 } },
@@ -491,9 +469,7 @@ function JournalPage() {
             })
           )
         ),
-        // Right: journal content
         h('div', null,
-          // Day stats
           h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 10, marginBottom: 16 } },
             [
               { l:'Trades',  v: dayTrades.length },
@@ -505,7 +481,6 @@ function JournalPage() {
               h('div', { style: { fontSize: 16, fontWeight: 650, fontFamily: 'var(--mono)' }, className: x.cls||'' }, x.v)
             ))
           ),
-          // Journal content or empty
           current
             ? h('div', { className: 'glass-card', style: { marginBottom: 16 } },
                 h('div', { className: 'card-header' },
@@ -534,7 +509,6 @@ function JournalPage() {
                 h('div', { style: { fontSize: 12, color: 'var(--t3)', marginBottom: 16 } }, 'Document your plan, bias, and end-of-day reflections'),
                 h('button', { className: 'btn btn-primary', onClick: () => setShowForm(true) }, 'Write Entry')
               ),
-          // Day's trades
           dayTrades.length > 0 && h('div', null,
             h('div', { className: 'section-heading' }, `Trades on ${selDate}`),
             h('div', { style: { display: 'flex', flexDirection: 'column', gap: 8 } },
@@ -561,7 +535,6 @@ function JournalPage() {
   );
 }
 
-// ── PAYOUT BUFFER — one value per account, saved on the account record ──
 function BufferRow({ acc, onSave }) {
   var saved = acc.bufferAmount !== undefined && acc.bufferAmount !== null ? acc.bufferAmount : 40;
   var [val, setVal] = React.useState(String(saved));
@@ -620,7 +593,6 @@ function SettingsPage() {
     });
   };
 
-  // Sync form state from context whenever settings loads or changes
   React.useEffect(function() {
     if (settings && settings.id) {
       setF(Object.assign({}, DEFAULT_SETTINGS, settings));
@@ -628,7 +600,6 @@ function SettingsPage() {
     }
   }, [settings]);
 
-  // Auto-save helper — call after any field changes
   var autoSave = React.useCallback(async function(updated) {
     try { await saveSettings(updated); } catch(e) {}
   }, [saveSettings]);
@@ -676,14 +647,13 @@ function SettingsPage() {
           h('div', { className: 'card-body' },
             h('div', { className: 'input-group' }, h('label', { className: 'input-label' }, 'Currency'), h(UI.CustomDropdown, { value: f.currency||'USD', onChange: function(v){set('currency',v);}, options: CURRENCIES.map(function(c){return{value:c,label:c};}) })),
             h('div', { className: 'input-group' }, h('label', { className: 'input-label' }, 'Timezone'), h(UI.CustomDropdown, { value: f.timezone||'America/New_York', onChange: function(v){set('timezone',v);}, options: ['America/New_York','America/Chicago','Europe/London','Europe/Zurich','Asia/Tokyo','Asia/Singapore','Australia/Sydney'].map(function(tz){return{value:tz,label:tz};}) })),
-            h('div', { className: 'input-group' }, h('label', { className: 'input-label' }, 'Default Risk %'), h('input', { className: 'input-field', type: 'number', step: 0.1, value: f.defaultRisk, onChange: e => set('defaultRisk', +e.target.value) })),
             h('div', { className: 'input-group' }, h('label', { className: 'input-label' }, 'Default Instrument'), h(UI.CustomDropdown, { value: f.defaultInstrument||'NQ', onChange: function(v){set('defaultInstrument',v);}, options: INSTRUMENTS.concat(f.customInstruments||[]).map(function(i){return{value:i,label:i};}) }))
           )
         ),
         h('div', { className: 'glass-card' },
           h('div', { className: 'card-header' }, h('span', { className: 'card-title' }, 'About')),
           h('div', { className: 'card-body' },
-            [{ l:'Application', v:'Funded Trading Journal' }, { l:'Version', v:'1.0.0' }, { l:'Storage', v:'IndexedDB (local browser)' }, { l:'Charts', v:'Recharts' }].map((x, i) =>
+            [{ l:'Application', v:'Trading Journal' }, { l:'Version', v:'1.0.0' }, { l:'Storage', v:'IndexedDB (local browser)' }, { l:'Charts', v:'Recharts' }].map((x, i) =>
               h('div', { key: i, className: 'metric-row' }, h('span', { className: 'metric-name' }, x.l), h('span', { className: 'metric-val' }, x.v))
             ),
             h('div', { className: 'alert alert-info', style: { marginTop: 14 } }, h(UI.Icon, { name: 'info', size: 13 }), 'All data is stored locally. Export regularly to prevent data loss.')
@@ -721,7 +691,6 @@ function SettingsPage() {
               settings: f,
               onChange: async function(updated) {
                 setF(updated);
-                // Auto-persist webhook settings to DB immediately so they survive navigation
                 await saveSettings(updated);
               },
             })

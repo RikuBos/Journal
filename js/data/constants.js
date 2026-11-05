@@ -24,21 +24,19 @@ window.DEFAULT_SETTINGS = {
   id: 'settings',
   currency: 'USD',
   timezone: 'America/New_York',
-  defaultRisk: 1,
   defaultInstrument: 'NQ',
   customSetups: [],
   customConfirmations: [],
   customPOIs: [],
   customInstruments: [],
   customMistakes: [],
-  // Discord Webhook
   discordWebhookUrl: '',
   discordEnabled: false,
   discordSendOnTrade: true,
   discordSendOnJournal: true,
   discordSendOnWeeklyReview: true,
   discordSendOnDailyPL: false,
-  discordFormat: 'embed',   // 'embed' | 'plain'
+  discordFormat: 'embed',
   discordUsername: 'Trading Journal',
 };
 

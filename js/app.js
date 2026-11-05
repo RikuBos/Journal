@@ -9,7 +9,6 @@
   }
 })();
 
-
 function FloatingAddButton({ page }) {
   var { upsertTrade, upsertAccount } = useApp();
   var [openTrade, setOpenTrade] = React.useState(false);
@@ -21,14 +20,19 @@ function FloatingAddButton({ page }) {
     return function() { window.removeEventListener('openFAB', handler); };
   }, []);
 
-  if (['dashboard', 'trades', 'accounts'].indexOf(page) < 0) return null;
+  if (['dashboard', 'trades', 'accounts', 'finance'].indexOf(page) < 0) return null;
   var forAccount = page === 'accounts';
+  var forFinance = page === 'finance';
 
   return h(React.Fragment, null,
     h('div', {
       className: 'fab-add-trade',
-      'aria-label': forAccount ? 'New Account' : 'New Trade',
-      onClick: function() { forAccount ? setOpenAccount(true) : setOpenTrade(true); },
+      'aria-label': forFinance ? 'New Transaction' : (forAccount ? 'New Account' : 'New Trade'),
+      onClick: function() {
+        if (forFinance) window.dispatchEvent(new CustomEvent('openFinanceTx'));
+        else if (forAccount) setOpenAccount(true);
+        else setOpenTrade(true);
+      },
     },
       h(UI.Icon, { name: 'plus', size: 22 })
     ),
@@ -59,10 +63,10 @@ function FloatingAddButton({ page }) {
 function App() {
   const { loading } = useApp();
   const [page,      setPage]      = React.useState('dashboard');
-  const [collapsed, setCollapsed] = React.useState(false);
+  const [collapsed, setCollapsed] = React.useState(true);
 
   if (loading) return h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', flexDirection: 'column', gap: 20, background: 'var(--bg)' } },
-    h('div', { style: { width: 44, height: 44, borderRadius: 12, background: 'linear-gradient(140deg, var(--accent), var(--accent-2))', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, fontWeight: 800, color: '#fff', boxShadow: '0 0 30px rgba(91,141,238,0.4)', marginBottom: 4 } }, 'FT'),
+    h('img', { src: 'logo.png', alt: '', className: 'loading-logo', onError: function(e) { e.target.style.display = 'none'; } }),
     h('div', { className: 'spinner' }),
     h('div', { style: { fontSize: 13, color: 'var(--t3)', marginTop: 4, fontFamily: 'var(--font)' } }, 'Loading Journal…')
   );
@@ -73,6 +77,7 @@ function App() {
     accounts:  AccountsPage,
     calendar:  CalendarPage,
     payout:    PayoutPage,
+    finance:   FinancePage,
     analytics: AnalyticsPage,
     mistakes:  MistakesPage,
     playbook:  PlaybookPage,
@@ -92,7 +97,6 @@ function App() {
   );
 }
 
-// Root render — AuthGate mounts the existing app only after login.
 var root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
   h(UI.ToastProvider, null,

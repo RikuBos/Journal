@@ -4,9 +4,8 @@ function DashboardPage() {
   const { activeAccount, accountTrades, trades } = useApp();
   const { Icon, StatBlock, MetricRow, ChartTooltip, EmptyState } = UI;
 
-  // Recharts destructure — pulled from global window.Recharts
   const {
-    LineChart, Line, BarChart, Bar,
+    BarChart, Bar,
     XAxis, YAxis, CartesianGrid, Tooltip,
     ReferenceLine, ResponsiveContainer, Cell,
   } = window.Recharts;
@@ -14,14 +13,20 @@ function DashboardPage() {
   const metrics     = uMemo(() => Calc.metrics(accountTrades), [accountTrades]);
   const streak      = uMemo(() => Calc.streak(accountTrades), [accountTrades]);
   const equityCurve = uMemo(() => Calc.equityCurve(accountTrades, activeAccount?.startingBalance || 0), [accountTrades, activeAccount]);
-  const dailyPL     = uMemo(() => Calc.dailyPL(accountTrades), [accountTrades]);
-
+  
   const totalPL   = metrics.totalPL;
   const balance   = activeAccount ? accountBalance(activeAccount, totalPL) : 0;
   const profitPct = activeAccount ? (totalPL / activeAccount.startingBalance) * 100 : 0;
 
-  const targetProgress = activeAccount && activeAccount.profitTarget > 0
-    ? (Math.max(0, totalPL) / activeAccount.profitTarget) * 100 : 0;
+  const phasePL = totalPL - ((activeAccount && activeAccount.phasePLBase) || 0);
+  const phaseTarget = !activeAccount ? 0 : (activeAccount.phase === 'Phase 2'
+    ? (activeAccount.phase2Target || activeAccount.profitTarget)
+    : (activeAccount.phase1Target || activeAccount.profitTarget));
+  const targetProgress = phaseTarget > 0 ? (Math.max(0, phasePL) / phaseTarget) * 100 : 0;
+
+  const monthKey  = Calc.currentMonthKey();
+  const monthData = uMemo(() => activeAccount ? Calc.monthSeries(accountTrades, activeAccount.startingBalance, monthKey) : null, [accountTrades, activeAccount, monthKey]);
+  const last7     = uMemo(() => Calc.lastDays(accountTrades, 7), [accountTrades]);
 
   const curvePts = uMemo(() => {
     if (!activeAccount) return [];
@@ -36,8 +41,6 @@ function DashboardPage() {
   var ddInfo = uMemo(function() {
     if (!activeAccount) return { amount: 0, pct: 0, dailyDD: 0 };
     var vals = curvePts.map(function(p) { return p.balance; });
-    // Use currentDrawdown: resets to 0 when balance makes a new peak
-    // This matches how funded account trailing drawdown works
     var dd = Calc.currentDrawdown(vals, activeAccount.startingBalance);
     var dailyDD = Calc.dailyDrawdown(accountTrades);
     return Object.assign({}, dd, { dailyDD: dailyDD });
@@ -59,12 +62,11 @@ function DashboardPage() {
       h(ProfileMenu)
     ),
     h('div', { className: 'page-body', style: { paddingTop: 24 } },
-      h(EmptyState, { icon: 'accounts', title: 'No account selected', desc: 'Create a account to start tracking your performance.', action: null })
+      h(EmptyState, { icon: 'accounts', title: 'No account selected', desc: 'Create a funded account to start tracking your performance.', action: null })
     )
   );
 
   return h('div', null,
-    // ── Header ──
     h('div', { className: 'page-header' },
       h('div', null,
         h('div', { className: 'page-title' }, 'Dashboard'),
@@ -75,14 +77,12 @@ function DashboardPage() {
 
     h('div', { className: 'page-body' },
 
-      // Warnings
       warnings.length > 0 && h('div', { className: 'mb-14' },
         warnings.map((w, i) => h('div', { key: i, className: `alert alert-${w.type}` },
           h(Icon, { name: 'alert', size: 13 }), w.msg
         ))
       ),
 
-      // ── TOP KPI ROW ──
       h('div', { className: 'grid-stats mb-24' },
         h(StatBlock, {
           label: 'Current Balance',
@@ -107,7 +107,7 @@ function DashboardPage() {
             (activeAccount.phase === 'Phase 2'
               ? (activeAccount.phase2Target || activeAccount.profitTarget)
               : (activeAccount.phase1Target || activeAccount.profitTarget))
-            - Math.max(0, totalPL)
+            - Math.max(0, phasePL)
           )) + ' remaining',
           progressPct: targetProgress,
           progressColor: targetProgress >= 100 ? 'green' : 'blue',
@@ -130,60 +130,46 @@ function DashboardPage() {
         }),
       ),
 
-      // ── CHARTS ROW ──
       h('div', { className: 'grid-2 mb-24' },
 
-        // Equity Curve
         h('div', { className: 'glass-card' },
           h('div', { className: 'card-header' },
             h('span', { className: 'card-title' }, 'Equity Curve'),
-            h('span', { style: { fontSize: 11, color: 'var(--t3)' } }, `${metrics.totalTrades} trades`)
+            h('span', { style: { fontSize: 11, color: 'var(--t3)' } }, Calc.monthLabel(monthKey) + '   ' + (monthData ? monthData.count : 0) + ' trades')
           ),
           h('div', { style: { padding: '6px 2px 2px' } },
-            curvePts.length > 1
-              ? h(ResponsiveContainer, { width: '100%', height: 170 },
-                  h(LineChart, { data: curvePts, margin: { left: 0, right: 10, top: 4, bottom: 0 } },
-                    h(CartesianGrid, { stroke: 'rgba(255,255,255,0.06)', strokeDasharray: '3 3' }),
-                    h(XAxis, { dataKey: 'label', tick: { fontSize: 9.5, fill: 'var(--t4)' }, tickLine: false, axisLine: false }),
-                    h(YAxis, { tick: { fontSize: 9.5, fill: 'var(--t4)' }, tickLine: false, axisLine: false, tickFormatter: v => `$${v}`, width: 54 }),
-                    h(Tooltip, { content: ChartTooltip }),
-                    h(ReferenceLine, { y: activeAccount.startingBalance, stroke: 'rgba(255,255,255,0.25)', strokeDasharray: '3 3' }),
-                    h(Line, { type: 'monotone', dataKey: 'balance', stroke: totalPL >= 0 ? 'var(--green)' : 'var(--red)', strokeWidth: 1.5, dot: false, activeDot: { r: 3 } })
-                  )
-                )
-              : h('div', { style: { height: 170, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--t3)', fontSize: 12 } }, 'Record trades to see equity curve')
+            monthData && monthData.points.length > 1
+              ? h(EquityLine, { points: monthData.points, startBal: monthData.startBal, height: 190 })
+              : h('div', { style: { height: 190, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--t3)', fontSize: 12 } }, 'No trades this month yet')
           )
         ),
 
-        // Daily P/L Bar
         h('div', { className: 'glass-card' },
           h('div', { className: 'card-header' },
             h('span', { className: 'card-title' }, 'Daily P/L'),
-            h('span', { style: { fontSize: 11, color: 'var(--t3)' } }, `${dailyPL.length} trading days`)
+            h('span', { style: { fontSize: 11, color: 'var(--t3)' } }, 'Last 7 days')
           ),
           h('div', { style: { padding: '6px 2px 2px' } },
-            dailyPL.length > 0
-              ? h(ResponsiveContainer, { width: '100%', height: 170 },
-                  h(BarChart, { data: dailyPL, margin: { left: 0, right: 10, top: 4, bottom: 0 } },
+            last7.some(d => d.pl !== 0)
+              ? h(ResponsiveContainer, { width: '100%', height: 190 },
+                  h(BarChart, { data: last7, margin: { left: 0, right: 10, top: 4, bottom: 0 } },
                     h(CartesianGrid, { stroke: 'rgba(255,255,255,0.06)', strokeDasharray: '3 3' }),
                     h(XAxis, { dataKey: 'date', tick: { fontSize: 9.5, fill: 'var(--t4)' }, tickLine: false, axisLine: false }),
                     h(YAxis, { tick: { fontSize: 9.5, fill: 'var(--t4)' }, tickLine: false, axisLine: false, tickFormatter: v => `$${v}`, width: 54 }),
                     h(Tooltip, { content: ChartTooltip }),
                     h(ReferenceLine, { y: 0, stroke: 'rgba(255,255,255,0.2)' }),
                     h(Bar, { dataKey: 'pl', radius: [2, 2, 0, 0], maxBarSize: 36, name: 'P/L' },
-                      dailyPL.map((d, i) => h(Cell, { key: i, fill: d.pl >= 0 ? 'rgba(45,206,137,0.65)' : 'rgba(245,54,92,0.65)' }))
+                      last7.map((d, i) => h(Cell, { key: i, fill: d.pl >= 0 ? 'rgba(45,206,137,0.65)' : 'rgba(245,54,92,0.65)' }))
                     )
                   )
                 )
-              : h('div', { style: { height: 170, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--t3)', fontSize: 12 } }, 'No daily P/L data yet')
+              : h('div', { style: { height: 190, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--t3)', fontSize: 12 } }, 'No trades in the last 7 days')
           )
         )
       ),
 
-      // ── STATS GRID ──
       h('div', { className: 'grid-3 mb-24' },
 
-        // Performance
         h('div', { className: 'glass-card' },
           h('div', { className: 'card-header' }, h('span', { className: 'card-title' }, 'Performance')),
           h('div', { className: 'card-body', style: { padding: '6px 22px 14px' } },
@@ -196,7 +182,6 @@ function DashboardPage() {
           )
         ),
 
-        // Averages
         h('div', { className: 'glass-card' },
           h('div', { className: 'card-header' }, h('span', { className: 'card-title' }, 'Averages')),
           h('div', { className: 'card-body', style: { padding: '6px 22px 14px' } },
@@ -209,7 +194,6 @@ function DashboardPage() {
           )
         ),
 
-        // Streaks & Compliance
         h('div', { className: 'glass-card' },
           h('div', { className: 'card-header' }, h('span', { className: 'card-title' }, 'Streaks & Compliance')),
           h('div', { className: 'card-body', style: { padding: '6px 22px 14px' } },
@@ -223,12 +207,10 @@ function DashboardPage() {
         )
       ),
 
-      // ── PROGRESS BARS ──
       !isBroker && h('div', { className: 'glass-card' },
         h('div', { className: 'card-header' }, h('span', { className: 'card-title' }, 'Account Progress')),
         h('div', { className: 'card-body' },
           h('div', { className: 'grid-3', style: { gap: 28 } },
-            // Profit target (not for funded accounts)
             activeAccount.phase !== 'Funded' && h('div', null,
               h('div', { style: { display: 'flex', justifyContent: 'space-between', marginBottom: 6, fontSize: 11, color: 'var(--t3)' } },
                 h('span', null, 'Profit Target'),
@@ -238,11 +220,10 @@ function DashboardPage() {
                 h('div', { className: `progress-fill ${targetProgress >= 100 ? 'green' : 'blue'}`, style: { width: `${Math.min(100, targetProgress)}%` } })
               ),
               h('div', { style: { display: 'flex', justifyContent: 'space-between', marginTop: 4, fontSize: 10, color: 'var(--t4)' } },
-                h('span', null, Calc.fmt.currency(Math.max(0, totalPL))),
+                h('span', null, Calc.fmt.currency(Math.max(0, phasePL))),
                 h('span', null, Calc.fmt.currency(activeAccount.profitTarget))
               )
             ),
-            // Max Drawdown
             h('div', null,
               h('div', { style: { display: 'flex', justifyContent: 'space-between', marginBottom: 6, fontSize: 11, color: 'var(--t3)' } },
                 h('span', null, 'Max Drawdown'),
@@ -256,7 +237,6 @@ function DashboardPage() {
                 h('span', null, Calc.fmt.currency(activeAccount.maxLoss))
               )
             ),
-            // Daily Loss
             h('div', null,
               h('div', { style: { display: 'flex', justifyContent: 'space-between', marginBottom: 6, fontSize: 11, color: 'var(--t3)' } },
                 h('span', null, 'Daily Loss (Today)'),
@@ -278,3 +258,31 @@ function DashboardPage() {
 }
 
 window.DashboardPage = DashboardPage;
+
+function EquityLine({ points, startBal, height }) {
+  var R = window.Recharts;
+  var vals = points.map(function(p) { return p.balance; }).concat(startBal);
+  var min = Math.min.apply(null, vals), max = Math.max.apply(null, vals);
+  var pad = Math.max((max - min) * 0.25, Math.abs(startBal) * 0.002, 1);
+  var up = points[points.length - 1].balance >= startBal;
+  var color = up ? '#34d399' : '#f87171';
+  var gid = 'eqfill' + (up ? 'u' : 'd');
+  return h(R.ResponsiveContainer, { width: '100%', height: height || 190 },
+    h(R.AreaChart, { data: points, margin: { left: 0, right: 14, top: 10, bottom: 0 } },
+      h('defs', null,
+        h('linearGradient', { id: gid, x1: 0, y1: 0, x2: 0, y2: 1 },
+          h('stop', { offset: '0%', stopColor: color, stopOpacity: 0.28 }),
+          h('stop', { offset: '100%', stopColor: color, stopOpacity: 0 })
+        )
+      ),
+      h(R.CartesianGrid, { stroke: 'rgba(255,255,255,0.06)', vertical: false }),
+      h(R.XAxis, { dataKey: 'label', tick: { fontSize: 10, fill: 'var(--t4)' }, tickLine: false, axisLine: false, minTickGap: 24 }),
+      h(R.YAxis, { domain: [Math.floor(min - pad), Math.ceil(max + pad)], tick: { fontSize: 10, fill: 'var(--t4)' }, tickLine: false, axisLine: false, tickFormatter: function(v) { return '$' + v.toLocaleString(); }, width: 62 }),
+      h(R.Tooltip, { content: UI.ChartTooltip }),
+      h(R.ReferenceLine, { y: startBal, stroke: 'rgba(255,255,255,0.25)', strokeDasharray: '4 4' }),
+      h(R.Area, { type: 'monotone', dataKey: 'balance', name: 'Balance', stroke: color, strokeWidth: 2.5, fill: 'url(#' + gid + ')', dot: false, activeDot: { r: 4, strokeWidth: 0, fill: color } })
+    )
+  );
+}
+
+window.EquityLine = EquityLine;

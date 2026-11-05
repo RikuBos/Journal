@@ -103,7 +103,6 @@ function makeSampleTrades(accountId) {
 }
 
 async function initSampleData() {
-  // Only seed mistakes and settings on first run - NO sample trades or accounts
   const existingMistakes = await DB.getAll(STORES.mistakes);
   if (existingMistakes.length === 0) {
     for (const m of DEFAULT_MISTAKES) await DB.put(STORES.mistakes, m);

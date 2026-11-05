@@ -7,6 +7,7 @@ function Sidebar({ page, setPage, collapsed, setCollapsed }) {
     { id: 'accounts',  label: 'Accounts',      icon: 'accounts'  },
     { id: 'calendar',  label: 'Calendar',      icon: 'calendar'  },
     { id: 'payout',    label: 'Payout',       icon: 'dollar'   },
+    { id: 'finance',   label: 'Finance',      icon: 'wallet'   },
     { id: 'analytics', label: 'Analytics',     icon: 'analytics' },
     { id: 'mistakes',  label: 'Mistakes',      icon: 'mistakes'  },
     { id: 'playbook',  label: 'Playbook',      icon: 'playbook'  },
@@ -31,7 +32,6 @@ function Sidebar({ page, setPage, collapsed, setCollapsed }) {
 
   return React.createElement('nav', { className: `sidebar ${collapsed ? 'collapsed' : ''}` },
 
-    // Header
     React.createElement('div', { className: 'sidebar-header' },
       React.createElement('div', { className: 'logo-mark' },
         React.createElement('img', { src: 'logo.png', alt: 'FTJ',
@@ -42,19 +42,17 @@ function Sidebar({ page, setPage, collapsed, setCollapsed }) {
         React.createElement('span', { className: 'l1' }, 'Trading Journal'),
         React.createElement('span', { className: 'l2' }, 'Account')
       ),
-      React.createElement('div', { className: 'sidebar-toggle', onClick: () => setCollapsed(!collapsed), title: collapsed ? 'Expand' : 'Collapse' },
+      React.createElement('div', { className: 'sidebar-toggle', onClick: () => setCollapsed(!collapsed) },
         React.createElement(UI.Icon, { name: 'chevronL', size: 11, color: 'var(--t3)' })
       )
     ),
 
-    // Nav items
     React.createElement('div', { className: 'sidebar-nav' },
       nav.map(item =>
         React.createElement('div', {
           key: item.id,
           className: `nav-item ${page === item.id ? 'active' : ''}`,
           onClick: () => setPage(item.id),
-          title: collapsed ? item.label : undefined,
         },
           React.createElement('span', { className: 'nav-icon' },
             React.createElement(UI.Icon, { name: item.icon, size: 15 })
@@ -64,12 +62,10 @@ function Sidebar({ page, setPage, collapsed, setCollapsed }) {
       )
     ),
 
-    // Footer — active account chip
-    React.createElement('div', { className: 'sidebar-footer' },
+    !collapsed && React.createElement('div', { className: 'sidebar-footer' },
       React.createElement('div', {
         className: 'account-chip',
         onClick: () => setPage('accounts'),
-        title: collapsed ? (activeAccount?.name || 'No Account') : undefined,
       },
         React.createElement('div', { className: dotClass() }),
         React.createElement('div', { className: 'account-chip-info' },

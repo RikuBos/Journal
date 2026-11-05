@@ -1,4 +1,3 @@
-// ── FUNDEDNEXT CFD MODELS ──────────────────────────────────
 var FUNDEDNEXT_CFD = {
   'Stellar 2-Step': {
     type: 'cfd', phases: 2, drawdownType: 'static',
@@ -52,7 +51,6 @@ var FUNDEDNEXT_CFD = {
   },
 };
 
-// ── FUNDEDNEXT FUTURES MODELS ──────────────────────────────
 var FUNDEDNEXT_FUTURES = {
   'Futures Legacy': {
     type: 'futures', phases: 1, drawdownType: 'eod_trailing',
@@ -95,7 +93,6 @@ var FUNDEDNEXT_FUTURES = {
   },
 };
 
-// ── E8 MARKETS ─────────────────────────────────────────────
 var E8_MARKETS = {
   'E8 Track (CFD)': {
     type: 'cfd', phases: 2, drawdownType: 'static',
@@ -118,7 +115,6 @@ var E8_MARKETS = {
   },
 };
 
-// ── TOPSTEP ─────────────────────────────────────────────────
 var TOPSTEP = {
   'TopStep Express (Futures)': {
     type: 'futures', phases: 1, drawdownType: 'trailing',
@@ -140,7 +136,9 @@ var TOPSTEP = {
   },
 };
 
-// ── AGGREGATED LOOKUP ──────────────────────────────────────
+var BROKERS   = ['Exness', 'HFM', 'XM', 'Valetax', 'Vantage'];
+var EXCHANGES = ['Binance', 'Bitget', 'Pluang', 'TokoCrypto'];
+
 var PROP_FIRMS = {
   'FundedNext': {
     cfd:     FUNDEDNEXT_CFD,
@@ -156,7 +154,6 @@ var PROP_FIRMS = {
   },
 };
 
-// Helper: get model data for a given firm/model/size
 function getPropFirmModel(firm, modelName, size) {
   var firmData = PROP_FIRMS[firm];
   if (!firmData) return null;
@@ -168,6 +165,8 @@ function getPropFirmModel(firm, modelName, size) {
   return Object.assign({}, model, { sizeData: sizeData, size: size });
 }
 
+window.BROKERS = BROKERS;
+window.EXCHANGES = EXCHANGES;
 window.PROP_FIRMS         = PROP_FIRMS;
 window.FUNDEDNEXT_CFD     = FUNDEDNEXT_CFD;
 window.FUNDEDNEXT_FUTURES = FUNDEDNEXT_FUTURES;

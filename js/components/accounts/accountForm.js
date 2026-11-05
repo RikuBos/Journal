@@ -1,4 +1,3 @@
-
 function AccountForm({ account, onSave, onClose }) {
   var firms    = ['FundedNext', 'E8 Markets', 'TopStep'];
   
@@ -18,7 +17,6 @@ function AccountForm({ account, onSave, onClose }) {
     return Object.keys(m.sizes).map(Number).sort(function(a,b){return a-b;});
   }
 
-  // Determine available instr types for a firm
   function getInstrTypes(firm) {
     var fd = PROP_FIRMS[firm];
     if (!fd) return [];
@@ -42,11 +40,12 @@ function AccountForm({ account, onSave, onClose }) {
   var [phaseS,    setPhase]  = React.useState(account && !account.isBroker ? (account.phase || 'Funded') : 'Funded');
   var [status,   setStatus]    = React.useState(account ? (account.status || 'Active') : 'Active');
   var [cycleType, setCycleType] = React.useState(account ? (account.cycleType || 'on_demand') : 'on_demand');
-  var [kind,       setKind]      = React.useState(account && account.isBroker ? 'broker' : 'prop');
-  var [brokerBal,  setBrokerBal] = React.useState(account && account.isBroker ? String(account.startingBalance || '') : '');
+  var [kind,       setKind]      = React.useState(account && account.isBroker ? (account.accountKind || 'broker') : 'prop');
+  var [venueS,     setVenue]     = React.useState(account && account.isBroker ? account.propFirm : '');
+  var [brokerBal,  setBrokerBal] = React.useState(account && account.isBroker
+    ? String(account.depositHistory && account.depositHistory[0] ? account.depositHistory[0].amount : (account.startingBalance || ''))
+    : '');
 
-  // Everything below is derived, so the dropdowns can never end up empty:
-  // an invalid type/model/size/phase falls back to the first valid option.
   var instrTypes = getInstrTypes(firm);
   var instrType  = instrTypes.indexOf(instrTypeS) >= 0 ? instrTypeS : (instrTypes[0] || 'cfd');
   var models     = getModels(firm, instrType);
@@ -64,20 +63,33 @@ function AccountForm({ account, onSave, onClose }) {
   phaseOpts.push('Funded');
   var phase = phaseOpts.indexOf(phaseS) >= 0 ? phaseS : 'Funded';
 
+  var venueList = kind === 'exchange' ? EXCHANGES : BROKERS;
+  var venue     = venueList.indexOf(venueS) >= 0 ? venueS : venueList[0];
+
   function handleSave() {
-    if (kind === 'broker') {
+    if (kind !== 'prop') {
       var bal = parseFloat(brokerBal);
-      if (!name.trim() || !(bal > 0)) { UI.toast('Isi nama akun dan saldo', 'error'); return; }
+      if (!name.trim() || !(bal > 0)) { UI.toast('Fill in the account name and deposit', 'error'); return; }
+      var st = nowStamp();
+      var oldInitial = account
+        ? (account.depositHistory && account.depositHistory[0] ? account.depositHistory[0].amount : account.startingBalance)
+        : bal;
+      var deposits = account && account.depositHistory && account.depositHistory.length
+        ? account.depositHistory.slice()
+        : [{ date: account ? (account.createdAt || '').slice(0, 10) : st.date, time: account ? '' : st.time, amount: bal, initial: true }];
+      deposits[0] = Object.assign({}, deposits[0], { amount: bal });
       onSave({
         id:              account ? account.id : ('acc-' + Date.now()),
         name:            name.trim(),
-        propFirm:        'Broker',
+        propFirm:        venue,
+        accountKind:     kind,
         isBroker:        true,
         instrType:       '',
         modelName:       '',
-        phase:           'Broker',
+        phase:           kind === 'exchange' ? 'Exchange' : 'Broker',
         status:          status,
-        startingBalance: bal,
+        startingBalance: account ? account.startingBalance + (bal - oldInitial) : bal,
+        depositHistory:  deposits,
         profitSplit:     100,
         profitTarget: 0, phase1Target: 0, phase2Target: 0,
         maxLoss: 0, dailyLoss: 0,
@@ -109,7 +121,6 @@ function AccountForm({ account, onSave, onClose }) {
       status:          status,
       startingBalance: size,
       profitSplit:     profitSplit,
-      // Auto-filled from model data
       profitTarget:    sd.phase1Target || sd.profitTarget || 0,
       phase2Target:    sd.phase2Target || 0,
       maxLoss:         sd.maxLoss || 0,
@@ -117,7 +128,6 @@ function AccountForm({ account, onSave, onClose }) {
       drawdownType:    md ? md.drawdownType : 'static',
       consistencyRule: md ? (md.consistencyRule || null) : null,
       rewardShare:     md ? md.rewardShare : profitSplit,
-      // On-demand payout flag
       onDemandPayout:  md ? !!md.onDemandPayout : false,
       bufferRule:      md ? !!md.bufferRule : false,
       contractLimit:   sd.contractLimit || '',
@@ -125,15 +135,14 @@ function AccountForm({ account, onSave, onClose }) {
       startingDD:      sd.startingDD || null,
       isActive:        account ? account.isActive : false,
       createdAt:       account ? account.createdAt : new Date().toISOString(),
-      // Payout tracking
       totalPayouts:    account ? (account.totalPayouts || 0) : 0,
       totalWithdrawn:  account ? (account.totalWithdrawn || 0) : 0,
+      phasePLBase:     account ? (account.phasePLBase || 0) : 0,
       bufferAmount:    account && account.bufferAmount !== undefined ? account.bufferAmount : 40,
       taxRate:         0,
       payoutHistory:   account ? (account.payoutHistory || []) : [],
       cycleType:         cycleType,
       cycleStartBalance: account ? (account.cycleStartBalance || size) : size,
-      // Phase-specific targets from model data
       phase1Target:      sd.phase1Target || sd.profitTarget || 0,
       phase2Target:      sd.phase2Target || 0,
     };
@@ -153,15 +162,16 @@ function AccountForm({ account, onSave, onClose }) {
     h('label', { className: 'input-label' }, 'Account Kind'),
     h('div', { className: 'toggle-group', style: { display: 'inline-flex' } },
       h('div', { className: 'toggle-opt' + (kind === 'prop' ? ' active' : ''), onClick: function() { setKind('prop'); } }, 'Prop Firm'),
-      h('div', { className: 'toggle-opt' + (kind === 'broker' ? ' active' : ''), onClick: function() { setKind('broker'); } }, 'Broker')
+      h('div', { className: 'toggle-opt' + (kind === 'broker' ? ' active' : ''), onClick: function() { setKind('broker'); } }, 'Broker'),
+      h('div', { className: 'toggle-opt' + (kind === 'exchange' ? ' active' : ''), onClick: function() { setKind('exchange'); } }, 'Exchange')
     )
   );
 
-  if (kind === 'broker') {
+  if (kind !== 'prop') {
     return h('div', null,
       kindToggle,
       h('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0 14px' } },
-        h('div', { style: { gridColumn: 'span 2' } }, inp('Account Name', name, setName, { placeholder: 'e.g. Exness Real' })),
+        h('div', { style: { gridColumn: 'span 2' } }, inp('Account Name', name, setName, { placeholder: kind === 'exchange' ? 'e.g. Binance Spot' : 'e.g. Exness Real' })),
         h('div', { className: 'input-group' },
           h('label', { className: 'input-label' }, 'Status'),
           h(UI.CustomDropdown, {
@@ -170,7 +180,14 @@ function AccountForm({ account, onSave, onClose }) {
           })
         ),
         h('div', { className: 'input-group' },
-          h('label', { className: 'input-label' }, 'Balance'),
+          h('label', { className: 'input-label' }, kind === 'exchange' ? 'Exchange' : 'Broker'),
+          h(UI.CustomDropdown, {
+            value: venue, onChange: setVenue,
+            options: venueList.map(function(v) { return { value: v, label: v }; }),
+          })
+        ),
+        h('div', { className: 'input-group' },
+          h('label', { className: 'input-label' }, 'Deposit'),
           h('input', { className: 'input-field', type: 'number', min: 0, step: 'any', placeholder: '0.00',
             value: brokerBal, onChange: function(e) { setBrokerBal(e.target.value); } })
         )
@@ -184,12 +201,10 @@ function AccountForm({ account, onSave, onClose }) {
 
   return h('div', null,
     kindToggle,
-    // Row 0: Account Name (full width)
     h('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0 14px' } },
       h('div', { style: { gridColumn: 'span 2' } }, inp('Account Name', name, setName, { placeholder: 'e.g. My FundedNext $5K' }))
     ),
 
-    // 3 columns: Prop Firm / Model / Split  |  Type / Cycle / Size  |  Phase / Status
     h('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0 14px' } },
       h('div', { className: 'input-group' },
         h('label', { className: 'input-label' }, 'Prop Firm'),
@@ -251,7 +266,6 @@ function AccountForm({ account, onSave, onClose }) {
       )
     ),
 
-    // Auto-filled rules preview
     modelData && size ? h('div', { style: { background: 'rgba(191,219,254,0.04)', border: '1px solid rgba(191,219,254,0.10)', borderRadius: 10, padding: '12px 14px', marginBottom: 14 } },
       h('div', { style: { fontSize: 10.5, fontWeight: 600, color: 'var(--t3)', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 10 } }, 'Auto-filled Rules'),
       h('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2px 24px' } },
@@ -277,7 +291,6 @@ function AccountForm({ account, onSave, onClose }) {
       )
     ) : null,
 
-    // Footer
     h('div', { style: { display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 4 } },
       h('button', { className: 'btn btn-secondary', onClick: onClose }, 'Cancel'),
       h('button', { className: 'btn btn-primary',   onClick: handleSave }, account ? 'Update Account' : 'Create Account')

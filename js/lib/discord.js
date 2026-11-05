@@ -1,14 +1,13 @@
 var DiscordWebhook = (function () {
 
-  // Strip all markdown / emoji / special chars that look bad in Discord embeds
   function clean(str) {
     if (!str) return '';
     return String(str)
-      .replace(/[*_~`|>]/g, '')   // markdown symbols
-      .replace(/[\u{1F000}-\u{1FFFF}]/gu, '')  // emoji unicode ranges
-      .replace(/[\u{2600}-\u{27BF}]/gu, '')     // misc symbols
-      .replace(/[\u{1F300}-\u{1F9FF}]/gu, '')   // more emoji
-      .replace(/\n{3,}/g, '\n\n') // collapse excess newlines
+      .replace(/[*_~`|>]/g, '')
+      .replace(/[\u{1F000}-\u{1FFFF}]/gu, '')
+      .replace(/[\u{2600}-\u{27BF}]/gu, '')
+      .replace(/[\u{1F300}-\u{1F9FF}]/gu, '')
+      .replace(/\n{3,}/g, '\n\n')
       .trim();
   }
 
@@ -31,17 +30,14 @@ var DiscordWebhook = (function () {
     return val.toFixed(1) + '%';
   }
 
-  // Color codes for Discord embed sidebar
   var COLOR = {
-    win:     0x10b981,  // green
-    loss:    0xef4444,  // red
-    neutral: 0x3b82f6,  // blue
-    warning: 0xf59e0b,  // amber
-    journal: 0x8b5cf6,  // purple
-    review:  0x06b6d4,  // cyan
+    win:     0x10b981,
+    loss:    0xef4444,
+    neutral: 0x3b82f6,
+    warning: 0xf59e0b,
+    journal: 0x8b5cf6,
+    review:  0x06b6d4,
   };
-
-  // ── BUILD PAYLOADS ──────────────────────────────────────────
 
   function buildTradeEmbed(trade, account, settings) {
     var isWin   = (trade.profitLoss || 0) > 0;
@@ -87,7 +83,7 @@ var DiscordWebhook = (function () {
         color: color,
         fields: fields,
         footer: {
-          text: 'Funded Trading Journal - ' + clean(trade.date) + ' ' + (clean(trade.time) || ''),
+          text: 'Trading Journal - ' + clean(trade.date) + ' ' + (clean(trade.time) || ''),
         },
         timestamp: new Date().toISOString(),
       }],
@@ -162,7 +158,7 @@ var DiscordWebhook = (function () {
         description: 'Day result: ' + fmt(dayPL, currency) + ' across ' + dayTrades.length + ' trade' + (dayTrades.length !== 1 ? 's' : ''),
         color: color,
         fields: fields,
-        footer: { text: 'Funded Trading Journal' },
+        footer: { text: 'Trading Journal' },
         timestamp: new Date().toISOString(),
       }],
     };
@@ -220,7 +216,7 @@ var DiscordWebhook = (function () {
         description: (isPos ? 'Profitable' : 'Unprofitable') + ' week: ' + fmt(review.totalPL, currency),
         color: color,
         fields: fields,
-        footer: { text: 'Funded Trading Journal' },
+        footer: { text: 'Trading Journal' },
         timestamp: new Date().toISOString(),
       }],
     };
@@ -247,8 +243,6 @@ var DiscordWebhook = (function () {
     };
   }
 
-  // ── SEND ───────────────────────────────────────────────────
-
   async function send(webhookUrl, payload) {
     if (!webhookUrl || !webhookUrl.startsWith('https://discord.com/api/webhooks/')) {
       return { ok: false, error: 'Invalid webhook URL. Must start with https://discord.com/api/webhooks/' };
@@ -268,8 +262,6 @@ var DiscordWebhook = (function () {
       return { ok: false, error: err.message || 'Network error' };
     }
   }
-
-  // ── PUBLIC API ─────────────────────────────────────────────
 
   async function sendTrade(trade, account, settings) {
     if (!settings.discordEnabled || !settings.discordSendOnTrade) return { ok: false, error: 'Disabled' };
@@ -314,10 +306,6 @@ var DiscordWebhook = (function () {
 
 window.DiscordWebhook = DiscordWebhook;
 
-// ── WEEKLY & MONTHLY REPORT SCHEDULER ─────────────────────
-// Called on app load — checks if a weekly (Saturday 00:00) or
-// monthly (1st of month 00:00) report is due and sends it.
-
 var SCHED_KEYS = { weekly: 'lastWeeklyReport', monthly: 'lastMonthlyReport' };
 
 function formatReportDate(d) {
@@ -325,7 +313,6 @@ function formatReportDate(d) {
 }
 
 async function buildReportStats(trades, accounts, period) {
-  // period = { start: Date, end: Date }
   var periodTrades = trades.filter(function(t) {
     var d = new Date(t.date || t.createdAt);
     return t.status === 'Closed' && d >= period.start && d < period.end;
@@ -343,7 +330,6 @@ async function buildReportStats(trades, accounts, period) {
     ? (periodTrades.reduce(function(s,t) { return s + (t.executionQuality||0); }, 0) / total).toFixed(1)
     : '—';
 
-  // Balance change: compare active account balance at start vs now
   var activeAcc = accounts.find(function(a) { return a.isActive; }) || accounts[0];
   var startBal  = activeAcc ? (activeAcc.startingBalance || 0) : 0;
   var currentBal = activeAcc ? (activeAcc.startingBalance + totalPL) : 0;
@@ -366,11 +352,9 @@ async function sendScheduledReport(type, trades, accounts, settings) {
   var start, label;
 
   if (type === 'weekly') {
-    // Last 7 days
     start = new Date(now); start.setDate(now.getDate() - 7); start.setHours(0,0,0,0);
     label = 'Weekly Report';
   } else {
-    // Last calendar month
     start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
     label = 'Monthly Report';
   }
@@ -401,17 +385,15 @@ async function sendScheduledReport(type, trades, accounts, settings) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
-  } catch(e) { /* silent */ }
+  } catch(e) { }
 }
 
-// Check on app load whether a scheduled report is due
 async function checkScheduledReports(trades, accounts, settings) {
   if (!settings || !settings.discordEnabled || !settings.discordWebhookUrl) return;
 
   var now   = new Date();
   var today = formatReportDate(now);
 
-  // Weekly: run on Saturday (day 6)
   if (now.getDay() === 6) {
     var lastW = localStorage.getItem(SCHED_KEYS.weekly);
     if (lastW !== today) {
@@ -420,7 +402,6 @@ async function checkScheduledReports(trades, accounts, settings) {
     }
   }
 
-  // Monthly: run on 1st of month
   if (now.getDate() === 1) {
     var lastM = localStorage.getItem(SCHED_KEYS.monthly);
     if (lastM !== today) {

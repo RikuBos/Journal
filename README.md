@@ -1,66 +1,76 @@
-# Trade Journal
+# Trading Journal
 
-Jurnal trading untuk akun prop firm (FundedNext, E8, TopStep) dan akun broker biasa. Frontend-nya HTML/CSS/JavaScript biasa tanpa build. Login, data, dan gambar disimpan di Supabase, jadi data per user terpisah dan tidak hilang kalau browser dibersihkan.
+Jurnal trading untuk akun prop firm (FundedNext, E8, TopStep), akun broker, dan akun exchange crypto, ditambah halaman Finance untuk keuangan pribadi. Frontend-nya HTML/CSS/JavaScript biasa tanpa build. Login, data, dan gambar disimpan di Supabase, jadi data per user terpisah dan tidak hilang kalau browser dibersihkan.
 
 ## Menjalankan
 
-1. Siapkan Supabase mengikuti `SUPABASE-SETUP.md` (jalankan `supabase/schema.sql`, atur auth, bucket storage).
+1. Siapkan Supabase mengikuti `SUPABASE-SETUP.md` (jalankan `supabase/schema.sql`, atur auth, bucket storage, redirect URL).
 2. Isi URL dan publishable key di `js/lib/supabase-config.js`.
-3. Taruh `favicon.png` (ikon tab) dan `logo.png` (logo sidebar) di folder yang sama dengan `index.html`. Keduanya boleh gambar berbeda.
+3. Taruh `favicon.png` (ikon tab) dan `logo.png` di folder yang sama dengan `index.html`. `logo.png` dipakai di sidebar, layar login, dan layar loading.
 4. Buka lewat Live Server (VS Code) atau deploy statis (Vercel). Membuka `index.html` langsung dari file tidak cukup untuk login Supabase.
 5. Perlu internet: React, Recharts, Supabase JS, dan font diambil dari CDN.
 
 Pertama kali dibuka, daftar dulu lalu buat akun di halaman Accounts. Tidak ada data contoh.
 
-## Profil
+Halaman memasang `darkreader-lock` dan `color-scheme: dark`, jadi Dark Reader tidak mengubah tampilan. Ekstensi dark mode lain tidak bisa dimatikan dari sisi halaman.
 
-Di pojok kanan atas halaman Dashboard ada avatar. Klik untuk membuka menu:
+## Login dan profil
 
-- **Account settings**: ubah username, ganti foto profil, ganti password. Email hanya ditampilkan, tidak bisa diubah dari sini.
-- **Sign out**
-
-Username dan foto disimpan di metadata user Supabase. Foto masuk ke bucket privat `user-images`.
+- Pesan kesalahan login dan daftar memakai bahasa Indonesia. Mendaftar dengan email yang sudah terdaftar ditolak dengan pemberitahuan.
+- Di pojok kanan atas halaman Dashboard ada avatar. Klik untuk membuka menu Account settings dan Sign out.
+- Account settings: ganti foto profil, ubah username, lihat email (tidak bisa diubah dari sini), dan kirim link reset password ke email. Link itu membuka layar "Atur kata sandi baru" di aplikasi.
+- Username dan foto disimpan di metadata user Supabase. Foto masuk ke bucket privat `user-images`.
 
 ## Halaman
 
 | Halaman | Isi |
 |---|---|
-| Dashboard | Balance, P/L, target, drawdown, equity curve, P/L harian, statistik, streak |
+| Dashboard | Balance, P/L, target, drawdown, equity curve bulan berjalan, P/L 7 hari terakhir, statistik, streak |
 | Trades | Daftar trade, filter, form trade (4 tab: detail, setup, review, screenshot) |
 | Accounts | Daftar akun, buat/ubah/hapus, ganti akun aktif |
 | Calendar | P/L per hari dalam kalender bulanan |
 | Payout | Hitung dan catat payout, riwayat payout |
-| Analytics | Statistik per session, setup, hari, dan kepatuhan aturan |
+| Finance | Pemasukan, pengeluaran, saldo akun pribadi, pie chart per kategori |
+| Analytics | Statistik per session, setup, hari, kepatuhan aturan, dan Archive equity curve bulan lalu |
 | Mistakes, Playbook | Daftar kesalahan dan setup trading milikmu |
 | Reviews, Daily Journal | Review mingguan/bulanan dan jurnal harian |
 | Settings | Preferensi, konsep trading, buffer payout, Discord |
 
-Tombol "+" di kanan bawah hanya muncul di Dashboard, Trades, dan Accounts. Di Accounts tombol itu membuat akun baru, di dua halaman lain membuat trade baru.
+Sidebar selalu mulai dalam keadaan tertutup. Tombol "+" di kanan bawah muncul di Dashboard, Trades, Accounts, dan Finance: di Accounts membuat akun baru, di Finance membuat transaksi, di dua halaman lain membuat trade baru.
 
-Edit dan hapus dilakukan lewat klik kanan pada baris trade, kartu akun, atau kartu playbook. Tidak ada tombol edit/hapus yang terlihat.
+Edit dan hapus dilakukan lewat klik kanan pada baris trade, kartu akun, kartu playbook, riwayat payout, akun dan transaksi Finance. Tidak ada tombol edit/hapus yang terlihat.
 
 ## Akun
 
-Ada dua jenis akun, dipilih di form akun.
+Tiga jenis akun, dipilih di form akun.
 
 **Prop Firm.** Pilih firm, type (CFD atau Futures), model, size, phase, cycle type, dan profit split. Aturan (max loss, daily loss, target, consistency, tipe drawdown) terisi otomatis dari `js/data/propFirmData.js`.
 
-- Phase: Phase 1, Phase 2, atau Funded. Akun Funded tidak punya profit target. Jumlah phase yang tampil mengikuti model.
-- Cycle type: On Demand atau 14 Day. Ini menentukan syarat payout (lihat bagian Payout).
+- Phase: Phase 1, Phase 2, atau Funded. Akun Funded tidak punya profit target.
+- Cycle type: On Demand atau 14 Day. Ini menentukan syarat payout.
 - Beberapa akun dengan model yang sama boleh dibuat dan diaktifkan bersamaan.
+- **Naik phase otomatis**: saat trade Closed disimpan dan profit di phase itu mencapai target, Phase 1 pindah ke Phase 2 (atau langsung Funded untuk model satu phase), Phase 2 pindah ke Funded. Profit untuk target dihitung ulang dari titik pindah itu. Balance tetap kumulatif, tidak dikembalikan ke starting balance. Saat jadi Funded, cycle payout dimulai dari balance saat itu. Phase tidak turun lagi kalau trade diubah kemudian.
 
-**Broker.** Cuma nama, saldo, dan status. Tidak ada aturan, target, atau drawdown di dashboard.
+**Broker.** Pilih broker (Exness, HFM, XM, Valetax, Vantage), isi nama, deposit, dan status. Tidak ada aturan, target, atau drawdown.
+
+**Exchange.** Sama dengan broker, pilihannya Binance, Bitget, Pluang, TokoCrypto.
+
+Klik kanan akun broker atau exchange: Edit Account, Set as Active, Add Deposit, History, Delete Account. Add Deposit menambah saldo awal. History menampilkan semua deposit dan semua payout (payout diambil dari halaman Payout) berurutan dari yang terbaru. Mengubah deposit awal di form edit ikut menggeser saldo.
 
 ## Trade
 
 Di form trade, field yang dihitung otomatis:
 
 - **Risk amount** = `|entry - SL| x size x point value`
+- **Risk % (auto)**: persen dari starting balance akun yang hilang kalau stop loss kena, ditampilkan negatif. Tidak diinput dan tidak ada risk calculator.
 - **P/L** = `(exit - entry) x size x point value` (dibalik untuk short)
 - **R:R** dari jarak entry, SL, dan TP
-- **Position size**, kalau entry, SL, dan Risk % sudah diisi: `(starting balance x risk%) / (|entry - SL| x point value)`
-- **Execution quality** (1-10), dihitung saat trade disimpan, tidak diinput manual
-- **Grade**, otomatis juga, tapi bisa kamu timpa manual. Kalau ditimpa, label "manual override" muncul.
+- **Execution quality** (1-10), dihitung saat trade disimpan
+- **Grade**, otomatis juga, tapi bisa kamu timpa manual
+
+**Position size** diisi manual. Trade baru otomatis memakai size trade sebelumnya (trade terakhir di akun aktif, atau trade terakhir mana pun kalau akun itu belum punya trade). Kalau belum ada trade, defaultnya 1.
+
+**Instrument**: urutan awal mengikuti daftar bawaan. Setiap kali sebuah pair dipakai di trade, pair itu naik ke posisi atas dropdown; pair yang belum pernah dipakai tetap di bawah dengan urutan awal.
 
 ### Instrument dan point value
 
@@ -75,7 +85,7 @@ Daftar bawaan: NQ, ES, YM, EURUSD, GBPUSD, USDJPY, GBPJPY, XAUUSD, BTCUSD, ETHUS
 | XAUUSD | $100 |
 | BTCUSD / ETHUSD | $1 |
 
-BTCUSD dan ETHUSD dipakai untuk perhitungan futures. Untuk crypto spot, tambahkan sendiri di Settings > Trading Concepts > Spot Crypto Pairs: ketik simbol (mis. `SOL`), tersimpan sebagai `SOL.S`. Pair spot memakai point value 1, jadi size diisi jumlah koin dan P/L = selisih harga x jumlah koin. Pair yang kamu tambah muncul di dropdown instrument di form trade dan di Default Instrument.
+BTCUSD dan ETHUSD dipakai untuk perhitungan futures. Untuk crypto spot, tambahkan sendiri di Settings > Trading Concepts > Spot Crypto Pairs: ketik simbol (mis. `SOL`), tersimpan sebagai `SOL.S`. Pair spot memakai point value 1, jadi size diisi jumlah koin dan P/L = selisih harga x jumlah koin.
 
 ### Execution quality
 
@@ -95,11 +105,13 @@ Batas bawah 1.
 
 A+ mulai 0.90, A 0.78, B 0.62, C 0.46, D 0.30, di bawahnya F.
 
-## Drawdown
+## Dashboard dan Archive
 
-Dashboard menampilkan drawdown **saat ini**: jarak balance ke puncaknya (puncak minimal sama dengan starting balance). Kalau balance membuat puncak baru, drawdown kembali 0 dan baru terisi lagi kalau balance turun dari puncak itu.
+- Equity curve menampilkan bulan kalender berjalan, mulai dari balance di awal bulan. Garis putus-putus menandai balance awal bulan.
+- P/L harian menampilkan 7 hari kalender terakhir. Tidak ada yang disimpan, hari yang lewat dari 7 hari hilang dari grafik.
+- Analytics > Archive menampilkan equity curve, jumlah trade, win rate, dan P/L untuk setiap bulan sebelumnya yang punya trade. Datanya dihitung dari trade yang ada, tidak ada tabel terpisah.
 
-Ini penyederhanaan. Aplikasi tidak memodelkan trailing intraday atau EOD trailing milik firm secara persis, jadi angka resmi di dashboard firm tetap yang jadi acuan.
+Drawdown yang tampil adalah drawdown **saat ini**: jarak balance ke puncaknya (puncak minimal sama dengan starting balance). Ini penyederhanaan, bukan model trailing intraday atau EOD milik firm.
 
 ## Payout
 
@@ -109,17 +121,29 @@ Pilih akun di halaman Payout.
 
 1. Cycle profit = balance sekarang dikurangi balance awal cycle.
 2. Buffer (default $40, diatur per akun di Settings > Payout) ditinggal di akun.
-3. Yang ditarik dari akun = cycle profit dikurangi buffer.
-4. Yang masuk kantong = yang ditarik x profit split.
+3. Nominal yang ditarik dari akun bisa diatur. Kosong berarti maksimum (cycle profit dikurangi buffer). Kalkulator menghitung ulang split dan balance setelah payout dari nominal itu.
+4. Yang masuk kantong = nominal ditarik x profit split.
 
 Syarat payout:
 
 - **On Demand**: cycle profit minimal 2% dari balance awal cycle, dan kalau model punya consistency rule, hari profit terbaik tidak boleh melebihi batasnya (mis. 40%) dari cycle profit.
 - **14 Day**: cycle profit harus positif.
 
-Setelah payout: balance akun berkurang sebesar yang ditarik, cycle dimulai lagi dari 0 (profit dan consistency dihitung ulang dari trade sesudah payout), dan payout masuk ke tab History.
+Setelah payout: balance akun berkurang sebesar yang ditarik, cycle dimulai lagi dari 0, dan payout masuk ke tab History.
 
-**Akun broker**: isi jumlah, klik Payout. Tidak ada buffer atau syarat. Balance berkurang sebesar jumlah itu.
+**Menghapus payout**: klik kanan baris di History, Delete payout. Balance, total payout, dan cycle dikembalikan seperti sebelum payout itu (termasuk buffer dan profit split). Kalau yang dihapus bukan payout terakhir, cycle yang sedang berjalan dibiarkan dan hanya balance yang dikembalikan.
+
+**Akun broker dan exchange**: isi jumlah, klik Payout. Tidak ada buffer atau syarat. Balance berkurang sebesar jumlah itu, dan payout bisa dihapus dengan cara yang sama.
+
+## Finance
+
+Halaman keuangan pribadi, terpisah dari akun trading.
+
+- Akun: Cash, Bank, E-Wallet, Savings, Other, masing-masing dengan saldo awal. Klik kanan untuk edit atau hapus (menghapus akun ikut menghapus transaksinya).
+- Transaksi: Expense, Income, atau Transfer antar akun. Kategori bawaan tersedia dan kategori sendiri bisa diketik lewat pilihan Custom. Transfer tidak dihitung sebagai pemasukan atau pengeluaran.
+- Dashboard bulanan: total saldo, income, expense, net, pie chart per kategori (expense atau income), akun beserta saldonya, grafik cash flow 6 bulan, dan daftar transaksi bulan itu. Ganti bulan dengan panah di atas.
+- Mata uang: pilih Rupiah atau USD di kanan atas. Ini hanya format tampilan, angka tidak dikonversi.
+- Data disimpan di tabel `user_records` dengan store `finance_accounts`, `finance_tx`, dan `finance_prefs`.
 
 ## Discord
 
@@ -132,13 +156,13 @@ Yang dikirim:
 - setiap payout (nama akun, tanggal, jam, jumlah, sisa balance)
 - ringkasan mingguan (hari Sabtu) dan bulanan (tanggal 1): jumlah trade, win rate, rata-rata R:R, kualitas eksekusi, total P/L, perubahan balance
 
-Karena tidak ada server, ringkasan mingguan dan bulanan **dikirim saat aplikasi dibuka pada hari itu**, bukan tepat jam 00:00. Kalau aplikasi tidak dibuka di hari Sabtu, ringkasan minggu itu tidak terkirim. Penanda "sudah dikirim" disimpan di localStorage browser, jadi kalau dibuka dari browser atau perangkat lain di hari yang sama, ringkasannya bisa terkirim lagi.
+Karena tidak ada server, ringkasan mingguan dan bulanan **dikirim saat aplikasi dibuka pada hari itu**, bukan tepat jam 00:00. Penanda "sudah dikirim" disimpan di localStorage browser, jadi kalau dibuka dari browser atau perangkat lain di hari yang sama, ringkasannya bisa terkirim lagi.
 
 ## Data
 
 - Semua data ada di tabel `user_records` (JSONB) di Supabase, dipisahkan per user lewat RLS. Screenshot dan foto profil ada di Storage privat.
 - Pengaturan (termasuk buffer per akun dan daftar pair spot) tersimpan otomatis.
-- Menu Data Management (ekspor/impor) sudah dihapus. Backup dilakukan dari sisi Supabase.
+- Tidak ada menu ekspor atau impor. Backup dilakukan dari sisi Supabase.
 - Webhook Discord ikut tersimpan di database sebagai bagian dari settings.
 
 ## Menambah atau mengubah model prop firm
@@ -147,18 +171,18 @@ Edit `js/data/propFirmData.js`. Satu model:
 
 ```js
 'Nama Model': {
-  type: 'cfd',              // 'cfd' atau 'futures'
-  phases: 2,                // 0 = instant, 1, atau 2
-  drawdownType: 'static',   // 'static', 'trailing', 'eod_trailing'
+  type: 'cfd',
+  phases: 2,
+  drawdownType: 'static',
   rewardShare: 90,
-  consistencyRule: null,    // angka persen, atau null
+  consistencyRule: null,
   sizes: {
     25000: { dailyLoss: 1250, maxLoss: 2000, phase1Target: 2500, phase2Target: 1250 },
   },
 },
 ```
 
-Model 1 phase memakai `profitTarget` sebagai pengganti `phase1Target`. Lalu daftarkan objek modelnya di `PROP_FIRMS`.
+`type` berisi `cfd` atau `futures`. `phases` berisi 0 untuk instant, 1, atau 2. `drawdownType` berisi `static`, `trailing`, atau `eod_trailing`. `consistencyRule` berisi angka persen atau `null`. Model satu phase memakai `profitTarget` sebagai pengganti `phase1Target`. Daftarkan objek modelnya di `PROP_FIRMS`. Daftar broker dan exchange ada di `BROKERS` dan `EXCHANGES` di file yang sama.
 
 Data FundedNext di file itu berasal dari halaman resmi FundedNext. Isian E8 Markets dan TopStep belum diverifikasi ke sumbernya. Cocokkan dulu sebelum dipakai.
 
@@ -180,14 +204,17 @@ js/
     dashboard/  dashboard.js
     trades/     trades.js, tradeForm.js
     accounts/   accounts.js, accountForm.js, payoutPage.js
+    finance/    financePage.js
     mistakes/   pages.js        mistakes, playbook, reviews, journal, settings
     settings/   discordSettings.js
 ```
 
-Urutan `<script>` di `index.html` penting, karena tidak ada bundler. File yang dipakai file lain harus dimuat lebih dulu. Semua deklarasi level atas memakai `var` supaya tidak bentrok antar file, dan `h` adalah `React.createElement` yang dideklarasikan sekali di `db.js`.
+Urutan `<script>` di `index.html` penting, karena tidak ada bundler. File yang dipakai file lain harus dimuat lebih dulu. Semua deklarasi level atas memakai `var` supaya tidak bentrok antar file, dan `h` adalah `React.createElement` yang dideklarasikan sekali di `db.js`. Kode tidak memakai komentar.
 
 ## Keterbatasan
 
 - Ringkasan Discord terjadwal bergantung pada aplikasi dibuka (lihat di atas).
 - Drawdown disederhanakan, payout mengikuti rumus di atas, bukan perhitungan resmi firm.
 - Email tidak bisa diubah dari aplikasi.
+- Naik phase otomatis tidak menyetel ulang balance ke starting balance firm.
+- Setelah daftar dengan email baru, Supabase tetap meminta verifikasi email kalau Confirm email aktif.

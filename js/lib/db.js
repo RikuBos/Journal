@@ -19,14 +19,12 @@ function requireSupabaseUser() {
   return user;
 }
 
-// Store images in private Storage bucket; database keeps only storage paths.
 async function prepareRecord(store, item, userId) {
   var copy = JSON.parse(JSON.stringify(item));
   if (store === STORES.trades && Array.isArray(copy.screenshots)) {
     for (var i = 0; i < copy.screenshots.length; i++) {
       var img = copy.screenshots[i];
       if (img && img.storagePath && img.dataUrl && img.dataUrl.indexOf('data:') !== 0) {
-        // dataUrl may be an expiring signed URL from a previous read; never persist it.
         delete img.dataUrl;
       }
       if (img && img.dataUrl && img.dataUrl.indexOf('data:') === 0) {
@@ -122,7 +120,6 @@ async function deleteUserFile(path, bucket) {
 window.DB = { get: dbGet, getAll: dbGetAll, put: dbPut, delete: dbDelete, clear: dbClear,
   uploadFile: uploadUserFile, getFileUrl: getUserFileUrl, deleteFile: deleteUserFile };
 
-// Prevent mousewheel from changing number input values
 document.addEventListener('wheel', function(e) {
   if (document.activeElement && document.activeElement.type === 'number') document.activeElement.blur();
 }, { passive: true });
