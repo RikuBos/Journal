@@ -7,7 +7,6 @@ function Sidebar({ page, setPage, collapsed, setCollapsed }) {
     { id: 'accounts',  label: 'Accounts',      icon: 'accounts'  },
     { id: 'calendar',  label: 'Calendar',      icon: 'calendar'  },
     { id: 'payout',    label: 'Payout',       icon: 'dollar'   },
-    { id: 'finance',   label: 'Finance',      icon: 'wallet'   },
     { id: 'analytics', label: 'Analytics',     icon: 'analytics' },
     { id: 'mistakes',  label: 'Mistakes',      icon: 'mistakes'  },
     { id: 'playbook',  label: 'Playbook',      icon: 'playbook'  },

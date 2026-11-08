@@ -16,7 +16,7 @@ function DashboardPage() {
   
   const totalPL   = metrics.totalPL;
   const balance   = activeAccount ? accountBalance(activeAccount, totalPL) : 0;
-  const profitPct = activeAccount ? (totalPL / activeAccount.startingBalance) * 100 : 0;
+  const profitPct = activeAccount ? ((totalPL - (activeAccount.phasePLBase || 0)) / activeAccount.startingBalance) * 100 : 0;
 
   const phasePL = totalPL - ((activeAccount && activeAccount.phasePLBase) || 0);
   const phaseTarget = !activeAccount ? 0 : (activeAccount.phase === 'Phase 2'
@@ -25,13 +25,14 @@ function DashboardPage() {
   const targetProgress = phaseTarget > 0 ? (Math.max(0, phasePL) / phaseTarget) * 100 : 0;
 
   const monthKey  = Calc.currentMonthKey();
-  const monthData = uMemo(() => activeAccount ? Calc.monthSeries(accountTrades, activeAccount.startingBalance, monthKey) : null, [accountTrades, activeAccount, monthKey]);
+  const monthData = uMemo(() => activeAccount ? Calc.monthSeries(accountTrades, activeAccount, monthKey) : null, [accountTrades, activeAccount, monthKey]);
   const last7     = uMemo(() => Calc.lastDays(accountTrades, 7), [accountTrades]);
 
   const curvePts = uMemo(() => {
     if (!activeAccount) return [];
-    const sorted = [...accountTrades.filter(t => t.status === 'Closed')]
-      .sort((a, b) => a.date.localeCompare(b.date));
+    const phaseStamp = Calc.phaseStart(activeAccount, accountTrades);
+    const sorted = [...accountTrades.filter(t => t.status === 'Closed' && (!phaseStamp || Calc.tradeStamp(t) > phaseStamp))]
+      .sort((a, b) => Calc.tradeStamp(a).localeCompare(Calc.tradeStamp(b)));
     let bal = activeAccount.startingBalance;
     const pts = [{ label: 'Start', balance: bal }];
     sorted.forEach(t => { bal += (t.profitLoss || 0); pts.push({ label: t.date, balance: +bal.toFixed(2) }); });
@@ -87,13 +88,13 @@ function DashboardPage() {
         h(StatBlock, {
           label: 'Current Balance',
           value: Calc.fmt.currency(balance),
-          cls: totalPL >= 0 ? 'positive' : 'negative',
+          cls: phasePL >= 0 ? 'positive' : 'negative',
           sub: `Started: ${Calc.fmt.currency(activeAccount.startingBalance)}`,
         }),
         h(StatBlock, {
           label: 'Total P/L',
-          value: Calc.fmt.currency(totalPL),
-          cls: totalPL >= 0 ? 'positive' : 'negative',
+          value: Calc.fmt.currency(phasePL),
+          cls: phasePL >= 0 ? 'positive' : 'negative',
           sub: profitPct.toFixed(2) + '% account',
         }),
         !isBroker && activeAccount.phase !== 'Funded' && h(StatBlock, {

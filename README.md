@@ -1,6 +1,6 @@
 # Trading Journal
 
-Jurnal trading untuk akun prop firm (FundedNext, E8, TopStep), akun broker, dan akun exchange crypto, ditambah halaman Finance untuk keuangan pribadi. Frontend-nya HTML/CSS/JavaScript biasa tanpa build. Login, data, dan gambar disimpan di Supabase, jadi data per user terpisah dan tidak hilang kalau browser dibersihkan.
+Jurnal trading untuk akun prop firm (FundedNext, E8, TopStep), akun broker, dan akun exchange crypto. Frontend-nya HTML/CSS/JavaScript biasa tanpa build. Login, data, dan gambar disimpan di Supabase, jadi data per user terpisah dan tidak hilang kalau browser dibersihkan.
 
 ## Menjalankan
 
@@ -30,15 +30,14 @@ Halaman memasang `darkreader-lock` dan `color-scheme: dark`, jadi Dark Reader ti
 | Accounts | Daftar akun, buat/ubah/hapus, ganti akun aktif |
 | Calendar | P/L per hari dalam kalender bulanan |
 | Payout | Hitung dan catat payout, riwayat payout |
-| Finance | Pemasukan, pengeluaran, saldo akun pribadi, pie chart per kategori |
 | Analytics | Statistik per session, setup, hari, kepatuhan aturan, dan Archive equity curve bulan lalu |
 | Mistakes, Playbook | Daftar kesalahan dan setup trading milikmu |
 | Reviews, Daily Journal | Review mingguan/bulanan dan jurnal harian |
 | Settings | Preferensi, konsep trading, buffer payout, Discord |
 
-Sidebar selalu mulai dalam keadaan tertutup. Tombol "+" di kanan bawah muncul di Dashboard, Trades, Accounts, dan Finance: di Accounts membuat akun baru, di Finance membuat transaksi, di dua halaman lain membuat trade baru.
+Sidebar selalu mulai dalam keadaan tertutup. Tombol "+" di kanan bawah muncul di Dashboard, Trades, dan Accounts: di Accounts membuat akun baru, di dua halaman lain membuat trade baru.
 
-Edit dan hapus dilakukan lewat klik kanan pada baris trade, kartu akun, kartu playbook, riwayat payout, akun dan transaksi Finance. Tidak ada tombol edit/hapus yang terlihat.
+Edit dan hapus dilakukan lewat klik kanan pada baris trade, kartu akun, kartu playbook, dan riwayat payout. Tidak ada tombol edit/hapus yang terlihat.
 
 ## Akun
 
@@ -49,7 +48,7 @@ Tiga jenis akun, dipilih di form akun.
 - Phase: Phase 1, Phase 2, atau Funded. Akun Funded tidak punya profit target.
 - Cycle type: On Demand atau 14 Day. Ini menentukan syarat payout.
 - Beberapa akun dengan model yang sama boleh dibuat dan diaktifkan bersamaan.
-- **Naik phase otomatis**: saat trade Closed disimpan dan profit di phase itu mencapai target, Phase 1 pindah ke Phase 2 (atau langsung Funded untuk model satu phase), Phase 2 pindah ke Funded. Profit untuk target dihitung ulang dari titik pindah itu. Balance tetap kumulatif, tidak dikembalikan ke starting balance. Saat jadi Funded, cycle payout dimulai dari balance saat itu. Phase tidak turun lagi kalau trade diubah kemudian.
+- **Naik phase otomatis**: saat trade Closed disimpan dan profit di phase itu mencapai target, Phase 1 pindah ke Phase 2 (atau langsung Funded untuk model satu phase), Phase 2 pindah ke Funded. Setiap pindah phase, akun mulai lagi dari starting balance (mis. $6000), seperti akun baru di firm: balance, Total P/L, target, dan drawdown dihitung dari trade setelah titik pindah itu. Saat jadi Funded, cycle payout juga mulai dari starting balance. Trade sebelum pindah tetap ada di Trades dan statistik. Phase tidak turun lagi kalau trade diubah kemudian.
 
 **Broker.** Pilih broker (Exness, HFM, XM, Valetax, Vantage), isi nama, deposit, dan status. Tidak ada aturan, target, atau drawdown.
 
@@ -74,11 +73,12 @@ Di form trade, field yang dihitung otomatis:
 
 ### Instrument dan point value
 
-Daftar bawaan: NQ, ES, YM, EURUSD, GBPUSD, USDJPY, GBPJPY, XAUUSD, BTCUSD, ETHUSD. Point value (dolar per 1 poin per kontrak/lot) ada di `js/utils/calc.js` (`POINT_VALUES`). Instrumen yang tidak ada di tabel dianggap 1.
+Daftar bawaan: NQ, ES, YM, EURUSD, GBPUSD, USDJPY, GBPJPY, XAUUSD, BTCUSD, ETHUSD. Point value (dolar per 1 poin per kontrak/lot) ada di `js/utils/calc.js` (`POINT_VALUES`). Instrumen yang tidak ada di tabel dianggap 1. Trade yang sudah tersimpan membawa P/L lama, jadi angkanya baru ikut rumus terbaru setelah trade itu dibuka dan disimpan lagi.
 
 | Instrumen | Per poin |
 |---|---|
-| NQ / MNQ | $10 / $1 |
+| NQ | $100 per lot (0.1 lot = $10 per poin) |
+| MNQ | $1 |
 | ES / MES | $50 / $5 |
 | YM / MYM | $5 / $0.5 |
 | Pair forex mayor | $10 |
@@ -107,7 +107,7 @@ A+ mulai 0.90, A 0.78, B 0.62, C 0.46, D 0.30, di bawahnya F.
 
 ## Dashboard dan Archive
 
-- Equity curve menampilkan bulan kalender berjalan, mulai dari balance di awal bulan. Garis putus-putus menandai balance awal bulan.
+- Equity curve menampilkan bulan kalender berjalan, mulai dari balance di awal bulan. Garis putus-putus menandai balance awal bulan. Selain trade, kurva ikut berubah saat ada payout (turun sebesar yang ditarik), deposit tambahan di akun broker/exchange (naik), dan pindah phase (kembali ke starting balance).
 - P/L harian menampilkan 7 hari kalender terakhir. Tidak ada yang disimpan, hari yang lewat dari 7 hari hilang dari grafik.
 - Analytics > Archive menampilkan equity curve, jumlah trade, win rate, dan P/L untuk setiap bulan sebelumnya yang punya trade. Datanya dihitung dari trade yang ada, tidak ada tabel terpisah.
 
@@ -134,16 +134,6 @@ Setelah payout: balance akun berkurang sebesar yang ditarik, cycle dimulai lagi 
 **Menghapus payout**: klik kanan baris di History, Delete payout. Balance, total payout, dan cycle dikembalikan seperti sebelum payout itu (termasuk buffer dan profit split). Kalau yang dihapus bukan payout terakhir, cycle yang sedang berjalan dibiarkan dan hanya balance yang dikembalikan.
 
 **Akun broker dan exchange**: isi jumlah, klik Payout. Tidak ada buffer atau syarat. Balance berkurang sebesar jumlah itu, dan payout bisa dihapus dengan cara yang sama.
-
-## Finance
-
-Halaman keuangan pribadi, terpisah dari akun trading.
-
-- Akun: Cash, Bank, E-Wallet, Savings, Other, masing-masing dengan saldo awal. Klik kanan untuk edit atau hapus (menghapus akun ikut menghapus transaksinya).
-- Transaksi: Expense, Income, atau Transfer antar akun. Kategori bawaan tersedia dan kategori sendiri bisa diketik lewat pilihan Custom. Transfer tidak dihitung sebagai pemasukan atau pengeluaran.
-- Dashboard bulanan: total saldo, income, expense, net, pie chart per kategori (expense atau income), akun beserta saldonya, grafik cash flow 6 bulan, dan daftar transaksi bulan itu. Ganti bulan dengan panah di atas.
-- Mata uang: pilih Rupiah atau USD di kanan atas. Ini hanya format tampilan, angka tidak dikonversi.
-- Data disimpan di tabel `user_records` dengan store `finance_accounts`, `finance_tx`, dan `finance_prefs`.
 
 ## Discord
 
@@ -204,7 +194,6 @@ js/
     dashboard/  dashboard.js
     trades/     trades.js, tradeForm.js
     accounts/   accounts.js, accountForm.js, payoutPage.js
-    finance/    financePage.js
     mistakes/   pages.js        mistakes, playbook, reviews, journal, settings
     settings/   discordSettings.js
 ```
@@ -216,5 +205,5 @@ Urutan `<script>` di `index.html` penting, karena tidak ada bundler. File yang d
 - Ringkasan Discord terjadwal bergantung pada aplikasi dibuka (lihat di atas).
 - Drawdown disederhanakan, payout mengikuti rumus di atas, bukan perhitungan resmi firm.
 - Email tidak bisa diubah dari aplikasi.
-- Naik phase otomatis tidak menyetel ulang balance ke starting balance firm.
 - Setelah daftar dengan email baru, Supabase tetap meminta verifikasi email kalau Confirm email aktif.
+- Statistik di bagian Performance, Averages, dan Streaks di Dashboard mencakup semua trade akun, tidak dibatasi per phase.

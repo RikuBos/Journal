@@ -191,7 +191,7 @@ function TradeForm({ trade, onSave, onClose }) {
         ),
         h('div', { className: 'input-group' },
           h('label', { className: 'input-label' }, 'Direction'),
-          h('div', { className: 'toggle-group' },
+          h('div', { className: 'toggle-group', style: { display: 'inline-flex' } },
             ['Long','Short'].map(d => h('div', { key: d, className: `toggle-opt ${f.direction === d ? 'active' : ''}`, onClick: () => set('direction', d) }, d))
           )
         ),

@@ -82,16 +82,19 @@ function AppProvider({ children }) {
     if (!acc || acc.isBroker || (acc.phase !== 'Phase 1' && acc.phase !== 'Phase 2')) return;
     const target = acc.phase === 'Phase 2' ? (acc.phase2Target || acc.profitTarget) : (acc.phase1Target || acc.profitTarget);
     if (!(target > 0)) return;
-    const total = trades
-      .filter(t => t.accountId === acc.id && t.status === 'Closed' && t.id !== item.id)
-      .reduce((s, t) => s + (t.profitLoss || 0), 0) + (item.profitLoss || 0);
+    const closedAll = trades.filter(t => t.accountId === acc.id && t.status === 'Closed' && t.id !== item.id).concat(item);
+    const total = closedAll.reduce((s, t) => s + (t.profitLoss || 0), 0);
     if (total - (acc.phasePLBase || 0) < target) return;
+    const lastStamp = closedAll.map(t => Calc.tradeStamp(t)).sort().pop();
     const model = getPropFirmModel(acc.propFirm, acc.modelName, acc.startingBalance);
     const next  = (acc.phase === 'Phase 1' && model && model.phases >= 2) ? 'Phase 2' : 'Funded';
-    const patch = { phase: next, phasePLBase: total };
-    if (next === 'Funded') patch.cycleStartBalance = accountBalance(acc, total);
+    const patch = {
+      phase: next, phasePLBase: total, phaseChangedAt: lastStamp,
+      phaseHistory: (acc.phaseHistory || []).concat({ from: acc.phase, to: next, at: lastStamp }),
+    };
+    if (next === 'Funded') patch.cycleStartBalance = acc.startingBalance;
     await upsertAccount({ ...acc, ...patch });
-    UI.toast(acc.name + ': target reached, moved to ' + next, 'success');
+    UI.toast(acc.name + ': target reached, moved to ' + next + ', balance back to ' + Calc.fmt.currency(acc.startingBalance), 'success');
   };
 
   const upsertTrade = async (trade) => {

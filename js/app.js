@@ -20,19 +20,14 @@ function FloatingAddButton({ page }) {
     return function() { window.removeEventListener('openFAB', handler); };
   }, []);
 
-  if (['dashboard', 'trades', 'accounts', 'finance'].indexOf(page) < 0) return null;
+  if (['dashboard', 'trades', 'accounts'].indexOf(page) < 0) return null;
   var forAccount = page === 'accounts';
-  var forFinance = page === 'finance';
 
   return h(React.Fragment, null,
     h('div', {
       className: 'fab-add-trade',
-      'aria-label': forFinance ? 'New Transaction' : (forAccount ? 'New Account' : 'New Trade'),
-      onClick: function() {
-        if (forFinance) window.dispatchEvent(new CustomEvent('openFinanceTx'));
-        else if (forAccount) setOpenAccount(true);
-        else setOpenTrade(true);
-      },
+      'aria-label': forAccount ? 'New Account' : 'New Trade',
+      onClick: function() { forAccount ? setOpenAccount(true) : setOpenTrade(true); },
     },
       h(UI.Icon, { name: 'plus', size: 22 })
     ),
@@ -77,7 +72,6 @@ function App() {
     accounts:  AccountsPage,
     calendar:  CalendarPage,
     payout:    PayoutPage,
-    finance:   FinancePage,
     analytics: AnalyticsPage,
     mistakes:  MistakesPage,
     playbook:  PlaybookPage,

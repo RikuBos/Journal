@@ -78,7 +78,7 @@ function AccountsPage() {
     const phasePL     = totalPL - (acc.phasePLBase || 0);
     const phaseTarget = acc.phase === 'Phase 2' ? (acc.phase2Target || acc.profitTarget) : (acc.phase1Target || acc.profitTarget);
     const targPct   = phaseTarget > 0 ? (Math.max(0, phasePL) / phaseTarget) * 100 : 0;
-    const ddAmt     = Math.abs(Math.min(0, totalPL));
+    const ddAmt     = Math.abs(Math.min(0, phasePL));
     const ddPct     = acc.maxLoss > 0 ? (ddAmt / acc.maxLoss) * 100 : 0;
     return { totalPL, phasePL, phaseTarget, balance: accountBalance(acc, totalPL), targPct, ddPct, ddAmt, count: accTrades.length, winRate: accTrades.length ? wins/accTrades.length*100 : 0 };
   };
@@ -124,7 +124,7 @@ function AccountsPage() {
                     )
                   ),
                   h('div', { style: { textAlign: 'right' } },
-                    h('div', { style: { fontSize: 18, fontWeight: 700, color: s.totalPL >= 0 ? 'var(--green)' : 'var(--red)', fontFamily: 'var(--mono)' } }, Calc.fmt.currency(s.balance)),
+                    h('div', { style: { fontSize: 18, fontWeight: 700, color: s.phasePL >= 0 ? 'var(--green)' : 'var(--red)', fontFamily: 'var(--mono)' } }, Calc.fmt.currency(s.balance)),
                     h('div', { style: { fontSize: 10, color: 'var(--t3)', marginTop: 2 } }, `Started: ${Calc.fmt.currency(acc.startingBalance)}`)
                   )
                 ),
@@ -142,7 +142,7 @@ function AccountsPage() {
                 ),
                 h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8, marginBottom: 12 } },
                   [
-                    { label: 'P/L',     val: Calc.fmt.currency(s.totalPL), cls: s.totalPL >= 0 ? 'text-pos' : 'text-neg' },
+                    { label: 'P/L',     val: Calc.fmt.currency(s.phasePL), cls: s.phasePL >= 0 ? 'text-pos' : 'text-neg' },
                     { label: 'Trades',  val: s.count },
                     { label: 'Win Rate',val: Calc.fmt.pct(s.winRate) },
                   ].map((x, i) => h('div', { key: i, style: { background: 'rgba(8,9,13,0.55)', border: '1px solid var(--border-1)', borderRadius: 6, padding: '7px 10px', textAlign: 'center' } },
@@ -501,7 +501,7 @@ function EquityArchive({ trades, account }) {
   );
   return h('div', { className: 'grid-2' },
     months.map(function(ym) {
-      var d  = Calc.monthSeries(trades, account.startingBalance, ym);
+      var d  = Calc.monthSeries(trades, account, ym);
       var wr = d.count ? (d.wins / d.count) * 100 : 0;
       return h('div', { key: ym, className: 'glass-card' },
         h('div', { className: 'card-header' },

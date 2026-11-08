@@ -1,5 +1,5 @@
 var POINT_VALUES = {
-  'NQ':   10,
+  'NQ':   100,
   'MNQ':   1,
   'ES':   50,
   'MES':   5,
@@ -132,20 +132,71 @@ var Calc = {
     return Object.keys(seen).sort().reverse();
   },
 
-  monthSeries(trades, startingBalance, ym) {
-    var closed = trades.filter(function(t) { return t.status === 'Closed' && t.date; })
+  accountBase(acc) {
+    if (!acc) return 0;
+    var base = acc.startingBalance || 0;
+    if (acc.isBroker && acc.depositHistory && acc.depositHistory.length > 1) {
+      base -= acc.depositHistory.slice(1).reduce(function(s, d) { return s + (d.amount || 0); }, 0);
+    }
+    return base;
+  },
+
+  phaseResets(acc, trades) {
+    if (!acc || acc.isBroker) return [];
+    if (acc.phaseHistory && acc.phaseHistory.length) return acc.phaseHistory.map(function(x) { return x.at; });
+    if (!(acc.phasePLBase > 0)) return [];
+    var closed = (trades || []).filter(function(t) { return t.status === 'Closed' && t.date; })
       .sort(function(a, b) { return Calc.tradeStamp(a).localeCompare(Calc.tradeStamp(b)); });
-    var bal = startingBalance || 0, pl = 0, count = 0, wins = 0;
-    closed.forEach(function(t) { if (t.date.slice(0, 7) < ym) bal += (t.profitLoss || 0); });
-    var startBal = bal;
-    var points = [{ label: 'Start', balance: +bal.toFixed(2) }];
-    closed.forEach(function(t) {
-      if (t.date.slice(0, 7) !== ym) return;
-      var v = t.profitLoss || 0;
-      bal += v; pl += v; count++;
-      if (v > 0) wins++;
-      points.push({ label: t.date.slice(5), balance: +bal.toFixed(2) });
+    var sum = 0;
+    for (var i = 0; i < closed.length; i++) {
+      sum += closed[i].profitLoss || 0;
+      if (sum >= acc.phasePLBase - 0.005) return [Calc.tradeStamp(closed[i])];
+    }
+    return [];
+  },
+
+  phaseStart(acc, trades) {
+    var r = Calc.phaseResets(acc, trades);
+    return r.length ? r[r.length - 1] : null;
+  },
+
+  accountEvents(acc, trades) {
+    var events = [];
+    (trades || []).forEach(function(t) {
+      if (t.status !== 'Closed' || !t.date) return;
+      events.push({ stamp: Calc.tradeStamp(t), order: 0, type: 'trade', delta: t.profitLoss || 0, pl: t.profitLoss || 0 });
     });
+    if (acc) {
+      (acc.payoutHistory || []).forEach(function(p) {
+        var out = acc.isBroker ? (p.amount || 0) : (p.withdrawn !== undefined ? p.withdrawn : 0);
+        if (!p.date || !out) return;
+        events.push({ stamp: p.date + 'T' + (p.time || '23:59'), order: 1, type: 'out', delta: -out });
+      });
+      if (acc.isBroker && acc.depositHistory) {
+        acc.depositHistory.slice(1).forEach(function(d) {
+          if (!d.date) return;
+          events.push({ stamp: d.date + 'T' + (d.time || '00:00'), order: 1, type: 'in', delta: d.amount || 0 });
+        });
+      }
+      Calc.phaseResets(acc, trades).forEach(function(at) { events.push({ stamp: at, order: 2, type: 'reset' }); });
+    }
+    return events.sort(function(a, b) { return a.stamp.localeCompare(b.stamp) || a.order - b.order; });
+  },
+
+  monthSeries(trades, acc, ym) {
+    var base = Calc.accountBase(acc);
+    var bal = base, startBal = base, pl = 0, count = 0, wins = 0;
+    var points = [];
+    Calc.accountEvents(acc, trades).forEach(function(ev) {
+      var month = ev.stamp.slice(0, 7);
+      if (month > ym) return;
+      if (ev.type === 'reset') bal = base; else bal += ev.delta;
+      if (month < ym) { startBal = bal; return; }
+      if (!points.length) points.push({ label: 'Start', balance: +startBal.toFixed(2) });
+      if (ev.type === 'trade') { pl += ev.pl; count++; if (ev.pl > 0) wins++; }
+      points.push({ label: ev.stamp.slice(5, 10), balance: +bal.toFixed(2) });
+    });
+    if (!points.length) points.push({ label: 'Start', balance: +startBal.toFixed(2) });
     return { points: points, startBal: startBal, endBal: bal, pl: pl, count: count, wins: wins };
   },
 
@@ -313,7 +364,6 @@ window.Calc = Calc;
 
 function accountBalance(acc, totalPL) {
   if (!acc) return 0;
-  var b = (acc.startingBalance || 0) + (totalPL || 0);
-  return b - (acc.totalWithdrawn || 0);
+  return (acc.startingBalance || 0) + ((totalPL || 0) - (acc.phasePLBase || 0)) - (acc.totalWithdrawn || 0);
 }
 window.accountBalance = accountBalance;
