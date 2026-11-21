@@ -84,7 +84,7 @@ function DashboardPage() {
         ))
       ),
 
-      h('div', { className: 'grid-stats mb-24' },
+      h('div', { className: 'grid-stats grid-stats-flow mb-24' },
         h(StatBlock, {
           label: 'Current Balance',
           value: Calc.fmt.currency(balance),
@@ -198,12 +198,12 @@ function DashboardPage() {
         h('div', { className: 'glass-card' },
           h('div', { className: 'card-header' }, h('span', { className: 'card-title' }, 'Streaks & Compliance')),
           h('div', { className: 'card-body', style: { padding: '6px 22px 14px' } },
-            h(MetricRow, { label: 'Current Streak', value: streak.current ? (streak.current + ' ' + (streak.type === 'win' ? 'W' : 'L')) : ' ', cls: streak.type === 'win' ? 'text-pos' : streak.type === 'loss' ? 'text-neg' : '' }),
+            h(MetricRow, { label: 'Current Streak', value: streak.current ? (streak.current + ' ' + (streak.type === 'win' ? 'W' : 'L')) : '—', cls: streak.type === 'win' ? 'text-pos' : streak.type === 'loss' ? 'text-neg' : '' }),
             h(MetricRow, { label: 'Best Streak',    value: `${streak.best} W`, cls: 'text-pos' }),
             h(MetricRow, { label: 'Worst Streak',   value: `${streak.worst} L`, cls: 'text-neg' }),
             h(MetricRow, { label: 'Trading Days',   value: [...new Set(accountTrades.map(t => t.date))].length }),
             h(MetricRow, { label: 'Rule Compliance', value: Calc.fmt.pct(ruleComply), cls: ruleComply >= 80 ? 'text-pos' : ruleComply >= 60 ? '' : 'text-neg' }),
-            h(MetricRow, { label: 'Avg Execution',  value: metrics.totalTrades ? (accountTrades.filter(t => t.status === 'Closed').reduce((s, t) => s + (t.executionQuality || 0), 0) / metrics.totalTrades).toFixed(1) + '/10' : ' ' }),
+            h(MetricRow, { label: 'Avg Execution',  value: metrics.totalTrades ? (accountTrades.filter(t => t.status === 'Closed').reduce((s, t) => s + (t.executionQuality || 0), 0) / metrics.totalTrades).toFixed(1) + '/10' : '—' }),
           )
         )
       ),
@@ -213,40 +213,40 @@ function DashboardPage() {
         h('div', { className: 'card-body' },
           h('div', { className: 'grid-3', style: { gap: 28 } },
             activeAccount.phase !== 'Funded' && h('div', null,
-              h('div', { style: { display: 'flex', justifyContent: 'space-between', marginBottom: 6, fontSize: 11, color: 'var(--t3)' } },
+              h('div', { style: { display: 'flex', justifyContent: 'space-between', marginBottom: 8, fontSize: 12, color: 'var(--t2)' } },
                 h('span', null, 'Profit Target'),
                 h('span', { style: { color: 'var(--t1)', fontFamily: 'var(--mono)' } }, `${targetProgress.toFixed(0)}%`)
               ),
               h('div', { className: 'progress-track' },
                 h('div', { className: `progress-fill ${targetProgress >= 100 ? 'green' : 'blue'}`, style: { width: `${Math.min(100, targetProgress)}%` } })
               ),
-              h('div', { style: { display: 'flex', justifyContent: 'space-between', marginTop: 4, fontSize: 10, color: 'var(--t4)' } },
+              h('div', { style: { display: 'flex', justifyContent: 'space-between', marginTop: 8, fontSize: 11, color: 'var(--t3)', fontFamily: 'var(--mono)' } },
                 h('span', null, Calc.fmt.currency(Math.max(0, phasePL))),
-                h('span', null, Calc.fmt.currency(activeAccount.profitTarget))
+                h('span', null, Calc.fmt.currency(phaseTarget))
               )
             ),
             h('div', null,
-              h('div', { style: { display: 'flex', justifyContent: 'space-between', marginBottom: 6, fontSize: 11, color: 'var(--t3)' } },
+              h('div', { style: { display: 'flex', justifyContent: 'space-between', marginBottom: 8, fontSize: 12, color: 'var(--t2)' } },
                 h('span', null, 'Max Drawdown'),
                 h('span', { style: { color: ddPct > 70 ? 'var(--red)' : 'var(--t1)', fontFamily: 'var(--mono)' } }, `${ddPct.toFixed(0)}%`)
               ),
               h('div', { className: 'progress-track' },
                 h('div', { className: `progress-fill ${ddPct > 70 ? 'red' : ddPct > 40 ? 'amber' : 'green'}`, style: { width: `${Math.min(100, ddPct)}%` } })
               ),
-              h('div', { style: { display: 'flex', justifyContent: 'space-between', marginTop: 4, fontSize: 10, color: 'var(--t4)' } },
+              h('div', { style: { display: 'flex', justifyContent: 'space-between', marginTop: 8, fontSize: 11, color: 'var(--t3)', fontFamily: 'var(--mono)' } },
                 h('span', null, Calc.fmt.currency(ddInfo.amount)),
                 h('span', null, Calc.fmt.currency(activeAccount.maxLoss))
               )
             ),
             h('div', null,
-              h('div', { style: { display: 'flex', justifyContent: 'space-between', marginBottom: 6, fontSize: 11, color: 'var(--t3)' } },
+              h('div', { style: { display: 'flex', justifyContent: 'space-between', marginBottom: 8, fontSize: 12, color: 'var(--t2)' } },
                 h('span', null, 'Daily Loss (Today)'),
                 h('span', { style: { color: dailyDDPct > 70 ? 'var(--red)' : 'var(--t1)', fontFamily: 'var(--mono)' } }, `${dailyDDPct.toFixed(0)}%`)
               ),
               h('div', { className: 'progress-track' },
                 h('div', { className: `progress-fill ${dailyDDPct > 70 ? 'red' : 'blue'}`, style: { width: `${Math.min(100, dailyDDPct)}%` } })
               ),
-              h('div', { style: { display: 'flex', justifyContent: 'space-between', marginTop: 4, fontSize: 10, color: 'var(--t4)' } },
+              h('div', { style: { display: 'flex', justifyContent: 'space-between', marginTop: 8, fontSize: 11, color: 'var(--t3)', fontFamily: 'var(--mono)' } },
                 h('span', null, Calc.fmt.currency(ddInfo.dailyDD)),
                 h('span', null, Calc.fmt.currency(activeAccount.dailyLoss))
               )

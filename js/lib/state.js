@@ -4,6 +4,27 @@ var useState = React.useState;
 var useCallback = React.useCallback;
 var useEffect = React.useEffect;
 
+function phaseRebasePatch(acc, trades, legacyStamp) {
+  if (!acc || acc.isBroker) return null;
+  var hist = acc.phaseHistory || [];
+  var stamp = acc.phaseChangedAt || (hist.length ? hist[hist.length - 1].at : null) || legacyStamp || null;
+  if (!stamp) return null;
+  var base = 0;
+  trades.forEach(function(t) {
+    if (t.accountId === acc.id && t.status === 'Closed' && t.date && Calc.tradeStamp(t) <= stamp) base += t.profitLoss || 0;
+  });
+  base = Math.round(base * 100) / 100;
+  var patch = {};
+  if (Math.abs(base - (acc.phasePLBase || 0)) >= 0.005) patch.phasePLBase = base;
+  if (!acc.phaseChangedAt) patch.phaseChangedAt = stamp;
+  if (!hist.length) patch.phaseHistory = [{ from: null, to: acc.phase, at: stamp }];
+  return Object.keys(patch).length ? patch : null;
+}
+
+function phaseLegacyStamp(acc, trades) {
+  return acc && acc.phasePLBase > 0 ? Calc.phaseStart(acc, trades.filter(function(t) { return t.accountId === acc.id; })) : null;
+}
+
 const AppCtx = createContext(null);
 const useApp = () => useContext(AppCtx);
 
@@ -32,6 +53,10 @@ function AppProvider({ children }) {
         DB.getAll(STORES.mistakes),
         DB.get(STORES.settings, 'settings'),
       ]);
+      for (let i = 0; i < accs.length; i++) {
+        const fix = phaseRebasePatch(accs[i], trs || [], null);
+        if (fix) { accs[i] = { ...accs[i], ...fix, updatedAt: new Date().toISOString() }; await DB.put(STORES.accounts, accs[i]); }
+      }
       setAccounts(accs || []);
       setTrades(trs || []);
       setJournals(jrns || []);
@@ -76,9 +101,9 @@ function AppProvider({ children }) {
     setAccounts(p => p.map(a => ({ ...a, isActive: a.id === id })));
   };
 
-  const advancePhase = async (item) => {
+  const advancePhase = async (item, accOverride) => {
     if (item.status !== 'Closed') return;
-    const acc = accounts.find(a => a.id === item.accountId);
+    const acc = accOverride || accounts.find(a => a.id === item.accountId);
     if (!acc || acc.isBroker || (acc.phase !== 'Phase 1' && acc.phase !== 'Phase 2')) return;
     const target = acc.phase === 'Phase 2' ? (acc.phase2Target || acc.profitTarget) : (acc.phase1Target || acc.profitTarget);
     if (!(target > 0)) return;
@@ -128,7 +153,13 @@ function AppProvider({ children }) {
     }
     await DB.put(STORES.trades, item);
     setTrades(p => [...p.filter(t => t.id !== item.id), item]);
-    await advancePhase(item);
+    const accBefore = accounts.find(a => a.id === item.accountId);
+    let accNow = accBefore;
+    if (accBefore) {
+      const fix = phaseRebasePatch(accBefore, [...trades.filter(t => t.id !== item.id), item], phaseLegacyStamp(accBefore, trades));
+      if (fix) accNow = await upsertAccount({ ...accBefore, ...fix });
+    }
+    await advancePhase(item, accNow);
     if (item.status === 'Closed' && typeof DiscordWebhook !== 'undefined') {
       var sett = await DB.get(STORES.settings, 'settings') || DEFAULT_SETTINGS;
       if (sett.discordEnabled && sett.discordSendOnTrade) {
@@ -139,8 +170,14 @@ function AppProvider({ children }) {
     return item;
   };
   const deleteTrade = async (id) => {
+    const target = trades.find(t => t.id === id);
     await DB.delete(STORES.trades, id);
     setTrades(p => p.filter(t => t.id !== id));
+    const acc = target ? accounts.find(a => a.id === target.accountId) : null;
+    if (acc) {
+      const fix = phaseRebasePatch(acc, trades.filter(t => t.id !== id), phaseLegacyStamp(acc, trades));
+      if (fix) await upsertAccount({ ...acc, ...fix });
+    }
   };
 
   const upsertJournal = async (j) => {

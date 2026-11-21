@@ -49,7 +49,7 @@ Tiga jenis akun, dipilih di form akun.
 - Phase: Phase 1, Phase 2, atau Funded. Akun Funded tidak punya profit target.
 - Cycle type: On Demand atau 14 Day. Ini menentukan syarat payout.
 - Beberapa akun dengan model yang sama boleh dibuat dan diaktifkan bersamaan.
-- **Naik phase otomatis**: saat trade Closed disimpan dan profit di phase itu mencapai target, Phase 1 pindah ke Phase 2 (atau langsung Funded untuk model satu phase), Phase 2 pindah ke Funded. Setiap pindah phase, akun mulai lagi dari starting balance (mis. $6000), seperti akun baru di firm: balance, Total P/L, target, dan drawdown dihitung dari trade setelah titik pindah itu. Saat jadi Funded, cycle payout juga mulai dari starting balance. Trade sebelum pindah tetap ada di Trades dan statistik. Phase tidak turun lagi kalau trade diubah kemudian.
+- **Naik phase otomatis**: saat trade Closed disimpan dan profit di phase itu mencapai target, Phase 1 pindah ke Phase 2 (atau langsung Funded untuk model satu phase), Phase 2 pindah ke Funded. Setiap pindah phase, akun mulai lagi dari starting balance (mis. $6000), seperti akun baru di firm: balance, Total P/L, target, dan drawdown dihitung dari trade setelah titik pindah itu. Saat jadi Funded, cycle payout juga mulai dari starting balance. Trade sebelum pindah tetap ada di Trades dan statistik. Phase tidak turun lagi kalau trade diubah kemudian. Kalau trade sebelum titik pindah itu dihapus atau diubah, titik awal phase dihitung ulang dari trade yang tersisa, jadi balance phase baru tidak ikut berubah.
 
 **Broker.** Pilih broker (Exness, HFM, XM, Valetax, Vantage), isi nama, deposit, dan status. Tidak ada aturan, target, atau drawdown.
 

@@ -168,7 +168,7 @@ function AccountForm({ account, onSave, onClose }) {
   );
 
   if (kind !== 'prop') {
-    return h('div', null,
+    return h('div', { className: 'acc-form' },
       kindToggle,
       h('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0 14px' } },
         h('div', { style: { gridColumn: 'span 2' } }, inp('Account Name', name, setName, { placeholder: kind === 'exchange' ? 'e.g. Binance Spot' : 'e.g. Exness Real' })),
@@ -192,17 +192,17 @@ function AccountForm({ account, onSave, onClose }) {
             value: brokerBal, onChange: function(e) { setBrokerBal(e.target.value); } })
         )
       ),
-      h('div', { style: { display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 4 } },
+      h('div', { className: 'acc-actions' },
         h('button', { className: 'btn btn-secondary', onClick: onClose }, 'Cancel'),
         h('button', { className: 'btn btn-primary', onClick: handleSave }, account ? 'Update Account' : 'Create Account')
       )
     );
   }
 
-  return h('div', null,
+  return h('div', { className: 'acc-form' },
     kindToggle,
     h('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0 14px' } },
-      h('div', { style: { gridColumn: 'span 2' } }, inp('Account Name', name, setName, { placeholder: 'e.g. My FundedNext $5K' }))
+      h('div', { style: { gridColumn: 'span 3' } }, inp('Account Name', name, setName, { placeholder: 'e.g. My FundedNext $5K' }))
     ),
 
     h('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0 14px' } },
@@ -291,7 +291,7 @@ function AccountForm({ account, onSave, onClose }) {
       )
     ) : null,
 
-    h('div', { style: { display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 4 } },
+    h('div', { className: 'acc-actions' },
       h('button', { className: 'btn btn-secondary', onClick: onClose }, 'Cancel'),
       h('button', { className: 'btn btn-primary',   onClick: handleSave }, account ? 'Update Account' : 'Create Account')
     )
