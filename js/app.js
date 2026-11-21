@@ -13,6 +13,13 @@ function FloatingAddButton({ page }) {
   var { upsertTrade, upsertAccount } = useApp();
   var [openTrade, setOpenTrade] = React.useState(false);
   var [openAccount, setOpenAccount] = React.useState(false);
+  var [finTab, setFinTab] = React.useState('overview');
+
+  React.useEffect(function() {
+    function onTab(e) { setFinTab(e.detail); }
+    window.addEventListener('financeTab', onTab);
+    return function() { window.removeEventListener('financeTab', onTab); };
+  }, []);
 
   React.useEffect(function() {
     function handler() { setOpenTrade(true); }
@@ -20,14 +27,20 @@ function FloatingAddButton({ page }) {
     return function() { window.removeEventListener('openFAB', handler); };
   }, []);
 
-  if (['dashboard', 'trades', 'accounts'].indexOf(page) < 0) return null;
+  if (['dashboard', 'trades', 'accounts', 'finance'].indexOf(page) < 0) return null;
+  if (page === 'finance' && finTab !== 'overview') return null;
   var forAccount = page === 'accounts';
+  var forFinance = page === 'finance';
 
   return h(React.Fragment, null,
     h('div', {
       className: 'fab-add-trade',
-      'aria-label': forAccount ? 'New Account' : 'New Trade',
-      onClick: function() { forAccount ? setOpenAccount(true) : setOpenTrade(true); },
+      'aria-label': forFinance ? 'New Transaction' : (forAccount ? 'New Account' : 'New Trade'),
+      onClick: function() {
+        if (forFinance) window.dispatchEvent(new CustomEvent('openFinanceTx'));
+        else if (forAccount) setOpenAccount(true);
+        else setOpenTrade(true);
+      },
     },
       h(UI.Icon, { name: 'plus', size: 22 })
     ),
@@ -72,6 +85,7 @@ function App() {
     accounts:  AccountsPage,
     calendar:  CalendarPage,
     payout:    PayoutPage,
+    finance:   FinancePage,
     analytics: AnalyticsPage,
     mistakes:  MistakesPage,
     playbook:  PlaybookPage,

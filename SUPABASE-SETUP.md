@@ -53,6 +53,10 @@ The reset link is sent from the app (Dashboard avatar, Account settings, Send re
 
 With Confirm email turned on, Supabase answers a duplicate sign-up with a user that has no identities, and the app shows "Email ini sudah terdaftar". With Confirm email turned off it returns a user already exists error, which gets the same message.
 
+## 10) Finance table
+
+Run `supabase/migrations/20261109_finance_transactions.sql` in the SQL Editor after `schema.sql`. It creates `public.finance_transactions` with row level security (select, insert, update and delete only on rows where `auth.uid() = user_id`) and does not touch `user_records` or any other table. Trades, mistakes and the rest of the journal data live as rows in `user_records` and are not affected.
+
 ## Important notes
 
 - The old app stored data in each browser's IndexedDB. The new version stores data per authenticated Supabase user. Existing IndexedDB data is not automatically uploaded; use the export/import migration above.

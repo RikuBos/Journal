@@ -4,7 +4,7 @@ Jurnal trading untuk akun prop firm (FundedNext, E8, TopStep), akun broker, dan 
 
 ## Menjalankan
 
-1. Siapkan Supabase mengikuti `SUPABASE-SETUP.md` (jalankan `supabase/schema.sql`, atur auth, bucket storage, redirect URL).
+1. Siapkan Supabase mengikuti `SUPABASE-SETUP.md` (jalankan `supabase/schema.sql` lalu `supabase/migrations/20261109_finance_transactions.sql`, atur auth, bucket storage, redirect URL).
 2. Isi URL dan publishable key di `js/lib/supabase-config.js`.
 3. Taruh `favicon.png` (ikon tab) dan `logo.png` di folder yang sama dengan `index.html`. `logo.png` dipakai di sidebar, layar login, dan layar loading.
 4. Buka lewat Live Server (VS Code) atau deploy statis (Vercel). Membuka `index.html` langsung dari file tidak cukup untuk login Supabase.
@@ -30,6 +30,7 @@ Halaman memasang `darkreader-lock` dan `color-scheme: dark`, jadi Dark Reader ti
 | Accounts | Daftar akun, buat/ubah/hapus, ganti akun aktif |
 | Calendar | P/L per hari dalam kalender bulanan |
 | Payout | Hitung dan catat payout, riwayat payout |
+| Finance | Pemasukan dan pengeluaran pribadi: statistik, grafik, tab Account (dompet), daftar semua transaksi |
 | Analytics | Statistik per session, setup, hari, kepatuhan aturan, dan Archive equity curve bulan lalu |
 | Mistakes, Playbook | Daftar kesalahan dan setup trading milikmu |
 | Reviews, Daily Journal | Review mingguan/bulanan dan jurnal harian |
@@ -135,6 +136,34 @@ Setelah payout: balance akun berkurang sebesar yang ditarik, cycle dimulai lagi 
 
 **Akun broker dan exchange**: isi jumlah, klik Payout. Tidak ada buffer atau syarat. Balance berkurang sebesar jumlah itu, dan payout bisa dihapus dengan cara yang sama.
 
+## Finance
+
+Halaman keuangan pribadi, terpisah total dari data trading: tidak ada payout, P/L, atau trade yang otomatis dihitung sebagai income atau expense. Semua transaksi dicatat manual lewat tombol "+" di kanan bawah.
+
+Data disimpan di tabel `finance_transactions` (bukan `user_records`) dengan kolom `id`, `user_id`, `transaction_name`, `type` (income/expense), `category`, `amount`, `transaction_date`, `notes`, `created_at`, `updated_at`. RLS aktif: setiap user hanya bisa membaca, menambah, mengubah, dan menghapus barisnya sendiri (`auth.uid() = user_id`). Aplikasi hanya memakai publishable key, tidak ada service role key di frontend. Migration ada di `supabase/migrations/20261109_finance_transactions.sql` dan tidak menyentuh tabel lain.
+
+**Account**: tab di sebelah Overview. Dompet berisi kartu akun (BCA, GoPay, dst), maksimal 10. Nama kartu dipilih dari daftar tetap (`FIN_ACCOUNT_NAMES` di `js/lib/finance.js`), pemilik selalu username profil dan tidak bisa diubah. Saldo kartu = saldo awal (diisi manual) + income - expense transaksi akun itu. Klik kiri kartu: kartu naik dan panel di kanan menampilkan info akun dan pie chart pengeluaran bulan ini per kategori. Klik kanan kartu: Edit atau Delete (transaksinya tetap ada, jadi tanpa akun). Tombol "+" hanya muncul di tab Overview. Migration: `supabase/migrations/20261121_finance_accounts.sql` (jalankan setelah migration finance_transactions).
+
+**Menambah transaksi**: form berisi Account (wajib dipilih), Amount dan Category (berdampingan), Type (Expense atau Income), dan Date. Tidak ada kolom nama atau catatan. Kolom `transaction_name` di database terisi otomatis dengan nama kategori. Kategori mengikuti type.
+
+- Expense: Food & Beverage, Shopping, Transport, Entertainment, Bills, Education, Health, Others.
+- Income: Salary, Business, Freelance, Investment, Gift, Others.
+
+**Overview** (semua dihitung dari transaksi asli di database, mata uang Rupiah):
+
+- Total Net Worth = total income dikurangi total expenses. Total Income dan Total Expenses juga total seluruh transaksi. Savings Rate = (income dikurangi expenses) dibagi income x 100%.
+- Perubahan di tiap kartu membandingkan bulan ini dengan bulan lalu. Net Worth dibandingkan dengan net worth di akhir bulan lalu, Income dan Expenses dengan jumlah bulan lalu, Savings Rate dalam poin persen. Kalau bulan lalu belum ada data, tampil "No data for last month".
+- Net Worth Trend: grafik garis dengan filter 1W, 1M, 3M, 6M, 1Y, ALL. Nilainya akumulasi income dikurangi expenses sampai hari itu. Untuk ALL yang lebih dari setahun, titiknya dirata per minggu.
+- Expense Breakdown: doughnut per kategori beserta nominal dan persentase, dengan pilihan periode (bulan ini, bulan lalu, 3 bulan terakhir, tahun ini, semua).
+- Monthly Summary: bar income dan expenses per bulan, 6 atau 12 bulan terakhir.
+- Recent Transactions: sampai 10 transaksi terakhir (kategori, tanggal, jam, nominal; income hijau, expense merah). Tinggi kartunya sama dengan Monthly Summary dan daftarnya bisa di-scroll. View All membuka tab Transaction.
+
+**Transaction**: daftar lengkap dari yang terbaru dengan kolom Category, Type, Date, Time, dan Amount. Filter type, kategori, rentang tanggal, bulan, dan tahun, urut berdasarkan tanggal atau nominal, dan pagination 25 per halaman. Total income, total expenses, dan net amount mengikuti filter yang aktif.
+
+Edit dan hapus lewat klik kanan pada baris (di All Transactions maupun Recent Transactions). Hapus selalu meminta konfirmasi, dan semua statistik serta grafik langsung ikut berubah.
+
+Kolom Time diambil dari waktu transaksi dicatat (`created_at`), karena tabel hanya menyimpan tanggal. Semua transaksi dimuat sekali (per 1000 baris) dan dipakai bersama oleh Overview dan All Transactions, jadi keduanya selalu sama.
+
 ## Discord
 
 Settings > Discord Webhook. Tempel URL webhook, URL tersimpan saat kolom ditinggalkan.
@@ -183,10 +212,11 @@ index.html
 favicon.png, logo.png
 css/style.css
 supabase/schema.sql
+supabase/migrations/20261109_finance_transactions.sql
 SUPABASE-SETUP.md, INTEGRATION-NOTES.md
 js/
   app.js                        root, routing halaman, tombol tambah
-  lib/        supabase-config.js, supabase-client.js, auth.js, db.js, state.js, discord.js
+  lib/        supabase-config.js, supabase-client.js, auth.js, db.js, state.js, discord.js, finance.js
   utils/      calc.js           semua rumus
   data/       constants.js, propFirmData.js, sampleData.js
   components/
@@ -194,6 +224,7 @@ js/
     dashboard/  dashboard.js
     trades/     trades.js, tradeForm.js
     accounts/   accounts.js, accountForm.js, payoutPage.js
+    finance/    financePage.js
     mistakes/   pages.js        mistakes, playbook, reviews, journal, settings
     settings/   discordSettings.js
 ```

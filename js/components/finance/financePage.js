@@ -1,457 +1,751 @@
-var FIN_COLORS = ['#93c5fd', '#34d399', '#fbbf24', '#f87171', '#c4b5fd', '#67e8f9', '#fb923c', '#a3e635', '#f9a8d4'];
-var FIN_EXPENSE = ['Food', 'Transport', 'Bills', 'Shopping', 'Health', 'Entertainment', 'Education', 'Other'];
-var FIN_INCOME = ['Salary', 'Trading Payout', 'Business', 'Gift', 'Other'];
-var FIN_ACCOUNT_TYPES = ['Cash', 'Bank', 'E-Wallet', 'Savings', 'Other'];
-
-function finMoney(v, cur) {
-  var n = Number(v) || 0;
-  var sign = n < 0 ? '-' : '';
-  if (cur === 'USD') return sign + '$' + Math.abs(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  return sign + 'Rp' + Math.abs(Math.round(n)).toLocaleString('id-ID');
-}
-
-function finShort(v, cur) {
-  var a = Math.abs(v);
-  if (cur === 'USD') return '$' + (a >= 1000 ? (a / 1000).toFixed(1) + 'k' : a);
-  if (a >= 1000000) return (a / 1000000).toFixed(a % 1000000 === 0 ? 0 : 1) + ' jt';
-  if (a >= 1000) return Math.round(a / 1000) + ' rb';
-  return String(a);
-}
-
-function finToday() {
-  var d = new Date();
-  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
-}
-
-function finShiftMonth(ym, delta) {
-  var p = ym.split('-');
-  var d = new Date(+p[0], +p[1] - 1 + delta, 1);
-  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
-}
-
-function finMonthName(ym, short) {
-  var p = ym.split('-');
-  return new Date(+p[0], +p[1] - 1, 1).toLocaleString('en-US', short ? { month: 'short' } : { month: 'long', year: 'numeric' });
-}
-
-function finTip(cur) {
+function finTip(cur, labelOf) {
   return function(props) {
     if (!props.active || !props.payload || !props.payload.length) return null;
+    var label = labelOf ? labelOf(props.payload[0]) : props.label;
     return h('div', { className: 'chart-tip' },
-      props.label ? h('div', { className: 'chart-tip-label' }, props.label) : null,
+      label ? h('div', { className: 'chart-tip-label' }, label) : null,
       props.payload.map(function(p, i) {
         return h('div', { key: i, className: 'chart-tip-row' },
-          h('span', { className: 'chart-tip-dot', style: { background: p.color || (p.payload && p.payload.fill) } }),
-          h('span', null, (p.name || '') + '  ' + finMoney(p.value, cur))
+          h('span', { className: 'chart-tip-dot', style: { background: p.color || (p.payload && p.payload.fill) || '#93c5fd' } }),
+          h('span', null, (p.name || '') + '   ' + finMoney(p.value, cur))
         );
       })
     );
   };
 }
 
-function FinTxForm({ tx, accounts, txs, onSave, onClose }) {
-  var first = accounts[0] ? accounts[0].id : '';
-  var [type, setType] = React.useState(tx && tx.type ? tx.type : 'expense');
-  var [amount, setAmount] = React.useState(tx && tx.amount ? String(tx.amount) : '');
-  var [date, setDate] = React.useState(tx && tx.date ? tx.date : finToday());
-  var [accountId, setAccountId] = React.useState(tx && tx.accountId ? tx.accountId : first);
-  var [toAccountId, setToAccountId] = React.useState(tx && tx.toAccountId ? tx.toAccountId : (accounts[1] ? accounts[1].id : ''));
-  var [category, setCategory] = React.useState(tx && tx.category ? tx.category : '');
-  var [custom, setCustom] = React.useState('');
-  var [note, setNote] = React.useState(tx && tx.note ? tx.note : '');
+function FinDelta({ change, invert, text }) {
+  if (text) return h('div', { className: 'fin-delta ' + text.cls }, text.label);
+  if (change === null || change === undefined) return h('div', { className: 'fin-delta flat' }, 'No data for last month');
+  var up = change >= 0;
+  var good = invert ? !up : up;
+  var cls = Math.abs(change) < 0.05 ? 'flat' : (good ? 'up' : 'down');
+  return h('div', { className: 'fin-delta ' + cls }, (up ? 'Up ' : 'Down ') + Math.abs(change).toFixed(1) + '% vs last month');
+}
 
-  var base = type === 'income' ? FIN_INCOME : FIN_EXPENSE;
-  var used = txs.filter(function(t) { return t.type === type && t.category; }).map(function(t) { return t.category; });
-  var cats = base.concat(used.filter(function(c, i) { return base.indexOf(c) < 0 && used.indexOf(c) === i; }));
-  var cat = category && (cats.indexOf(category) >= 0 || category === '__custom') ? category : cats[0];
-
-  function save() {
-    var amt = parseFloat(amount);
-    if (!(amt > 0)) { UI.toast('Enter an amount above 0', 'error'); return; }
-    if (!accountId) { UI.toast('Choose an account', 'error'); return; }
-    if (type === 'transfer' && (!toAccountId || toAccountId === accountId)) { UI.toast('Choose two different accounts', 'error'); return; }
-    var finalCat = type === 'transfer' ? '' : (cat === '__custom' ? custom.trim() : cat);
-    if (type !== 'transfer' && !finalCat) { UI.toast('Enter a category', 'error'); return; }
-    onSave({
-      id: tx && tx.id ? tx.id : 'ftx-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
-      type: type, amount: amt, date: date, accountId: accountId,
-      toAccountId: type === 'transfer' ? toAccountId : '',
-      category: finalCat, note: note.trim(),
-      createdAt: tx && tx.createdAt ? tx.createdAt : new Date().toISOString(),
-    });
-    onClose();
+function FinStats({ rows, cur }) {
+  var o = finOverview(rows);
+  var rateText = null;
+  if (o.savingsDelta !== null) {
+    rateText = { cls: Math.abs(o.savingsDelta) < 0.05 ? 'flat' : (o.savingsDelta >= 0 ? 'up' : 'down'),
+      label: (o.savingsDelta >= 0 ? 'Up ' : 'Down ') + Math.abs(o.savingsDelta).toFixed(1) + ' pts vs last month' };
+  } else {
+    rateText = { cls: 'flat', label: 'No data for last month' };
   }
-
-  var accOptions = accounts.map(function(a) { return { value: a.id, label: a.name }; });
-
-  return h('div', null,
-    h('div', { className: 'input-group' },
-      h('div', { className: 'toggle-group', style: { display: 'inline-flex' } },
-        ['expense', 'income', 'transfer'].map(function(t) {
-          return h('div', { key: t, className: 'toggle-opt' + (type === t ? ' active' : ''), onClick: function() { setType(t); } }, t.charAt(0).toUpperCase() + t.slice(1));
-        })
-      )
+  return h('div', { className: 'grid-stats mb-24' },
+    h('div', { className: 'stat-block fin-stat' },
+      h('div', { className: 'stat-label' }, 'Total Net Worth'),
+      h('div', { className: 'stat-value ' + (o.netWorth < 0 ? 'negative' : '') }, finMoney(o.netWorth, cur)),
+      h(FinDelta, { change: o.netChange })
     ),
-    h('div', { className: 'form-row' },
-      h('div', { className: 'input-group' },
-        h('label', { className: 'input-label' }, 'Amount'),
-        h('input', { className: 'input-field', type: 'number', min: 0, step: 'any', placeholder: '0', autoFocus: true, value: amount, onChange: function(e) { setAmount(e.target.value); } })
-      ),
-      h('div', { className: 'input-group' },
-        h('label', { className: 'input-label' }, 'Date'),
-        h('input', { className: 'input-field', type: 'date', value: date, onChange: function(e) { setDate(e.target.value); } })
-      )
+    h('div', { className: 'stat-block fin-stat' },
+      h('div', { className: 'stat-label' }, 'Total Income'),
+      h('div', { className: 'stat-value positive' }, finMoney(o.income, cur)),
+      h(FinDelta, { change: o.incomeChange })
     ),
-    h('div', { className: 'form-row' },
-      h('div', { className: 'input-group' },
-        h('label', { className: 'input-label' }, type === 'transfer' ? 'From' : 'Account'),
-        h(UI.CustomDropdown, { value: accountId, onChange: setAccountId, options: accOptions })
-      ),
-      type === 'transfer'
-        ? h('div', { className: 'input-group' },
-            h('label', { className: 'input-label' }, 'To'),
-            h(UI.CustomDropdown, { value: toAccountId, onChange: setToAccountId, options: accOptions })
-          )
-        : h('div', { className: 'input-group' },
-            h('label', { className: 'input-label' }, 'Category'),
-            h(UI.CustomDropdown, {
-              value: cat, onChange: setCategory,
-              options: cats.map(function(c) { return { value: c, label: c }; }).concat({ value: '__custom', label: 'Custom' }),
-            })
-          )
+    h('div', { className: 'stat-block fin-stat' },
+      h('div', { className: 'stat-label' }, 'Total Expenses'),
+      h('div', { className: 'stat-value negative' }, finMoney(o.expense, cur)),
+      h(FinDelta, { change: o.expenseChange, invert: true })
     ),
-    type !== 'transfer' && cat === '__custom' && h('div', { className: 'input-group' },
-      h('label', { className: 'input-label' }, 'Custom category'),
-      h('input', { className: 'input-field', value: custom, maxLength: 30, onChange: function(e) { setCustom(e.target.value); } })
-    ),
-    h('div', { className: 'input-group' },
-      h('label', { className: 'input-label' }, 'Note'),
-      h('input', { className: 'input-field', value: note, maxLength: 80, placeholder: 'Optional', onChange: function(e) { setNote(e.target.value); } })
-    ),
-    h('div', { style: { display: 'flex', justifyContent: 'flex-end', gap: 8 } },
-      h('button', { className: 'btn btn-secondary', onClick: onClose }, 'Cancel'),
-      h('button', { className: 'btn btn-primary', onClick: save }, tx && tx.id ? 'Update' : 'Save')
+    h('div', { className: 'stat-block fin-stat' },
+      h('div', { className: 'stat-label' }, 'Savings Rate'),
+      h('div', { className: 'stat-value ' + (o.savingsRate < 0 ? 'negative' : '') }, o.savingsRate.toFixed(1) + '%'),
+      h(FinDelta, { text: rateText })
     )
   );
 }
 
-function FinAccountForm({ acc, onSave, onClose }) {
-  var [name, setName] = React.useState(acc ? acc.name : '');
-  var [type, setType] = React.useState(acc ? acc.type : 'Bank');
-  var [opening, setOpening] = React.useState(acc ? String(acc.opening || 0) : '');
+function FinTrend({ rows, cur }) {
+  var R = window.Recharts;
+  var [range, setRange] = React.useState('1M');
+  var points = React.useMemo(function() { return finTrend(rows, range); }, [rows, range]);
+  var vals = points.map(function(p) { return p.value; });
+  var min = Math.min.apply(null, vals), max = Math.max.apply(null, vals);
+  var pad = Math.max((max - min) * 0.2, Math.abs(max) * 0.02, 1);
+  var up = points.length ? points[points.length - 1].value >= points[0].value : true;
+  var color = up ? '#60a5fa' : '#f87171';
+  var gid = 'finTrend' + (up ? 'Up' : 'Down');
+  return h('div', { className: 'glass-card fin-card' },
+    h('div', { className: 'card-header' },
+      h('span', { className: 'card-title' }, 'Net Worth Trend'),
+      h('div', { className: 'toggle-group' },
+        ['1W', '1M', '3M', '6M', '1Y', 'ALL'].map(function(r) {
+          return h('div', { key: r, className: 'toggle-opt' + (range === r ? ' active' : ''), style: { padding: '4px 11px', fontSize: 11.5 }, onClick: function() { setRange(r); } }, r);
+        })
+      )
+    ),
+    h('div', { className: 'fin-chart-fill' },
+      h('div', { className: 'fin-chart-inner' },
+      h(R.ResponsiveContainer, { width: '100%', height: '100%' },
+        h(R.AreaChart, { data: points, margin: { left: 0, right: 16, top: 8, bottom: 0 } },
+          h('defs', null,
+            h('linearGradient', { id: gid, x1: 0, y1: 0, x2: 0, y2: 1 },
+              h('stop', { offset: '0%', stopColor: color, stopOpacity: 0.32 }),
+              h('stop', { offset: '100%', stopColor: color, stopOpacity: 0 })
+            )
+          ),
+          h(R.CartesianGrid, { stroke: 'rgba(255,255,255,0.06)', vertical: false }),
+          h(R.XAxis, { dataKey: 'label', tick: { fontSize: 10.5, fill: 'var(--t3)' }, tickLine: false, axisLine: false, minTickGap: 32 }),
+          h(R.YAxis, { domain: [Math.floor(min - pad), Math.ceil(max + pad)], tick: { fontSize: 10.5, fill: 'var(--t3)' }, tickLine: false, axisLine: false, width: 58, tickFormatter: function(v) { return finShort(v, cur); } }),
+          h(R.Tooltip, { content: finTip(cur, function(p) { return p.payload && p.payload.key ? finDateLabel(p.payload.key) : ''; }) }),
+          h(R.Area, { type: 'monotone', dataKey: 'value', name: 'Net worth', stroke: color, strokeWidth: 2.5, fill: 'url(#' + gid + ')', dot: false, activeDot: { r: 4, strokeWidth: 0, fill: color } })
+        )
+      )
+      )
+    )
+  );
+}
 
-  function save() {
-    if (!name.trim()) { UI.toast('Enter an account name', 'error'); return; }
-    onSave({
-      id: acc ? acc.id : 'facc-' + Date.now(),
-      name: name.trim(), type: type, opening: parseFloat(opening) || 0,
-      createdAt: acc ? acc.createdAt : new Date().toISOString(),
-    });
-    onClose();
+function FinBreakdown({ rows, cur }) {
+  var R = window.Recharts;
+  var [period, setPeriod] = React.useState('this_month');
+  var data = React.useMemo(function() { return finBreakdown(rows, period); }, [rows, period]);
+  var options = [
+    { value: 'this_month', label: 'This month' }, { value: 'last_month', label: 'Last month' },
+    { value: 'last_3', label: 'Last 3 months' }, { value: 'this_year', label: 'This year' }, { value: 'all', label: 'All time' },
+  ];
+  return h('div', { className: 'glass-card fin-card' },
+    h('div', { className: 'card-header' },
+      h('span', { className: 'card-title' }, 'Expense Breakdown'),
+      h(UI.CustomDropdown, { value: period, onChange: setPeriod, options: options })
+    ),
+    h('div', { className: 'card-body' },
+      data.list.length === 0
+        ? h('div', { className: 'fin-empty-chart' }, 'No expenses in this period')
+        : h('div', null,
+            h('div', { style: { height: 190 } },
+              h(R.ResponsiveContainer, { width: '100%', height: '100%' },
+                h(R.PieChart, null,
+                  h(R.Pie, { data: data.list, dataKey: 'value', nameKey: 'name', innerRadius: 58, outerRadius: 90, paddingAngle: 2, stroke: 'none' },
+                    data.list.map(function(d, i) { return h(R.Cell, { key: d.name, fill: finCategoryColor(d.name, i) }); })
+                  ),
+                  h(R.Tooltip, { content: finTip(cur) })
+                )
+              )
+            ),
+            h('div', { className: 'fin-legend' },
+              data.list.map(function(d, i) {
+                return h('div', { key: d.name, className: 'fin-legend-row' },
+                  h('span', { className: 'fin-dot', style: { background: finCategoryColor(d.name, i) } }),
+                  h('span', { className: 'fin-legend-name' }, d.name),
+                  h('span', { className: 'fin-legend-amount' }, finMoney(d.value, cur)),
+                  h('span', { className: 'fin-legend-pct' }, ((d.value / data.total) * 100).toFixed(1) + '%')
+                );
+              })
+            )
+          )
+    )
+  );
+}
+
+function FinMonthly({ rows, cur }) {
+  var R = window.Recharts;
+  var [count, setCount] = React.useState(6);
+  var data = React.useMemo(function() { return finMonthly(rows, count); }, [rows, count]);
+  return h('div', { className: 'glass-card fin-card' },
+    h('div', { className: 'card-header' },
+      h('span', { className: 'card-title' }, 'Monthly Summary'),
+      h('div', { className: 'toggle-group' },
+        [6, 12].map(function(n) {
+          return h('div', { key: n, className: 'toggle-opt' + (count === n ? ' active' : ''), style: { padding: '4px 11px', fontSize: 11.5 }, onClick: function() { setCount(n); } }, n + 'M');
+        })
+      )
+    ),
+    h('div', { style: { padding: '14px 6px 8px' } },
+      h(R.ResponsiveContainer, { width: '100%', height: 300 },
+        h(R.BarChart, { data: data, margin: { left: 0, right: 12, top: 4, bottom: 0 } },
+          h(R.CartesianGrid, { stroke: 'rgba(255,255,255,0.06)', vertical: false }),
+          h(R.XAxis, { dataKey: 'label', tick: { fontSize: 11, fill: 'var(--t3)' }, tickLine: false, axisLine: false }),
+          h(R.YAxis, { tick: { fontSize: 10.5, fill: 'var(--t3)' }, tickLine: false, axisLine: false, width: 58, tickFormatter: function(v) { return finShort(v, cur); } }),
+          h(R.Tooltip, { content: finTip(cur, function(p) { return p.payload && p.payload.key ? finMonthLabel(p.payload.key) : ''; }), cursor: { fill: 'rgba(255,255,255,0.04)' } }),
+          h(R.Bar, { dataKey: 'Income', fill: '#34d399', radius: [4, 4, 0, 0], maxBarSize: 22 }),
+          h(R.Bar, { dataKey: 'Expenses', fill: '#f87171', radius: [4, 4, 0, 0], maxBarSize: 22 })
+        )
+      )
+    )
+  );
+}
+
+function FinRecent({ rows, cur, onViewAll, onEdit, onDelete }) {
+  var recent = rows.slice(0, 10);
+  return h('div', { className: 'glass-card fin-card fin-recent-card' },
+    h('div', { className: 'card-header' },
+      h('span', { className: 'card-title' }, 'Recent Transactions'),
+      h('button', { className: 'btn btn-ghost btn-sm', onClick: onViewAll }, 'View All')
+    ),
+    h('div', { className: 'fin-recent-wrap' },
+      h('div', { className: 'fin-recent-scroll card-body' },
+        recent.length === 0
+          ? h('div', { className: 'fin-empty-chart' }, 'No transactions yet')
+          : recent.map(function(r) {
+              return h('div', { key: r.id, className: 'fin-recent-row',
+                onContextMenu: function(e) {
+                  UI.showContextMenu(e, [
+                    { label: 'Edit', action: function() { onEdit(r); } },
+                    { label: 'Delete', danger: true, action: function() { onDelete(r); } },
+                  ]);
+                } },
+                h('div', { style: { minWidth: 0 } },
+                  h('div', { className: 'fin-recent-name' }, r.category),
+                  h('div', { className: 'fin-recent-sub' }, finDateLabel(r.transaction_date) + (finTimeOf(r) ? '   ' + finTimeOf(r) : ''))
+                ),
+                h('span', { className: 'fin-amount ' + (r.type === 'income' ? 'income' : 'expense') }, finMoney(r.amount, cur))
+              );
+            })
+      )
+    )
+  );
+}
+
+
+var FIN_WALLET = { top: 22, step: 46, cardH: 170, pocket: 104, width: 340, minStage: 300 };
+
+function FinAccountModal({ account, owner, onClose, onSave, onDelete, nextColor }) {
+  var editing = !!(account && account.id);
+  var [name, setName] = React.useState(account ? account.name : '');
+  var [balance, setBalance] = React.useState(account ? String(account.initial_balance) : '0');
+  var [color, setColor] = React.useState(account ? account.color : nextColor);
+  var [errors, setErrors] = React.useState({});
+  var [serverError, setServerError] = React.useState('');
+  var [busy, setBusy] = React.useState(false);
+  var nameOptions = FIN_ACCOUNT_NAMES.concat(account && FIN_ACCOUNT_NAMES.indexOf(account.name) < 0 ? [account.name] : []).map(function(n) { return { value: n, label: n }; });
+
+  async function submit() {
+    var e = {};
+    var n = name.trim();
+    var b = Number(balance);
+    if (!n) e.name = 'Choose an account';
+    if (balance === '' || !isFinite(b) || b < 0) e.balance = 'Enter 0 or more';
+    else if (b >= 1e12) e.balance = 'Amount is too large';
+    setErrors(e);
+    if (Object.keys(e).length) return;
+    setBusy(true);
+    setServerError('');
+    try {
+      await onSave({ name: n, initial_balance: Math.round(b * 100) / 100, color: color }, editing ? account.id : null);
+      onClose();
+    } catch (err) {
+      setServerError(err && err.message ? err.message : 'Could not save the account');
+      setBusy(false);
+    }
   }
 
-  return h('div', null,
+  return h(UI.Modal, { open: true, onClose: onClose, title: editing ? 'Edit Account' : 'Add Account' },
     h('div', { className: 'input-group' },
       h('label', { className: 'input-label' }, 'Account name'),
-      h('input', { className: 'input-field', value: name, autoFocus: true, maxLength: 40, placeholder: 'e.g. BCA, Cash, GoPay', onChange: function(e) { setName(e.target.value); } })
+      h(UI.CustomDropdown, { value: name, onChange: setName, placeholder: 'Select account', options: nameOptions }),
+      errors.name && h('div', { className: 'input-hint', style: { color: 'var(--red)' } }, errors.name)
     ),
     h('div', { className: 'form-row' },
       h('div', { className: 'input-group' },
-        h('label', { className: 'input-label' }, 'Type'),
-        h(UI.CustomDropdown, { value: type, onChange: setType, options: FIN_ACCOUNT_TYPES.map(function(t) { return { value: t, label: t }; }) })
+        h('label', { className: 'input-label' }, 'Account holder'),
+        h('input', { className: 'input-field', value: owner, disabled: true, readOnly: true }),
+        h('div', { className: 'input-hint' }, 'Taken from your profile username.')
       ),
       h('div', { className: 'input-group' },
-        h('label', { className: 'input-label' }, 'Opening balance'),
-        h('input', { className: 'input-field', type: 'number', step: 'any', placeholder: '0', value: opening, onChange: function(e) { setOpening(e.target.value); } })
+        h('label', { className: 'input-label' }, 'Initial balance'),
+        h('input', { className: 'input-field', type: 'number', min: 0, step: 'any', value: balance, onChange: function(e) { setBalance(e.target.value); } }),
+        errors.balance && h('div', { className: 'input-hint', style: { color: 'var(--red)' } }, errors.balance)
       )
     ),
-    h('div', { style: { display: 'flex', justifyContent: 'flex-end', gap: 8 } },
-      h('button', { className: 'btn btn-secondary', onClick: onClose }, 'Cancel'),
-      h('button', { className: 'btn btn-primary', onClick: save }, acc ? 'Update' : 'Save')
+    h('div', { className: 'input-group' },
+      h('label', { className: 'input-label' }, 'Card color'),
+      h('div', { className: 'fin-swatches' },
+        FIN_ACCOUNT_COLORS.map(function(c) {
+          return h('button', { key: c, type: 'button', 'aria-label': c, className: 'fin-swatch' + (color === c ? ' active' : ''), style: { background: c }, onClick: function() { setColor(c); } });
+        })
+      )
+    ),
+    serverError && h('div', { className: 'alert alert-danger' }, serverError),
+    h('div', { style: { display: 'flex', justifyContent: 'space-between', gap: 8 } },
+      editing ? h('button', { className: 'btn btn-danger', onClick: function() { onDelete(account); }, disabled: busy }, 'Delete') : h('span'),
+      h('div', { style: { display: 'flex', gap: 8 } },
+        h('button', { className: 'btn btn-secondary', onClick: onClose, disabled: busy }, 'Cancel'),
+        h('button', { className: 'btn btn-primary', onClick: submit, disabled: busy }, busy ? 'Saving…' : (editing ? 'Save changes' : 'Add account'))
+      )
     )
+  );
+}
+
+function FinWallet({ accounts, rows, cur, owner, onAdd, onEdit, onDelete }) {
+  var R = window.Recharts;
+  var [selectedId, setSelectedId] = React.useState(null);
+  var W = FIN_WALLET;
+  var n = accounts.length;
+  var stats = React.useMemo(function() {
+    var m = {};
+    accounts.forEach(function(a) { m[a.id] = finAccountStats(a, rows); });
+    return m;
+  }, [accounts, rows]);
+  var total = accounts.reduce(function(sum, a) { return sum + stats[a.id].balance; }, 0);
+  var visibleLast = 90, pocketMin = 100;
+  var height = Math.max(W.minStage, W.top + (n - 1) * W.step + visibleLast + pocketMin);
+  var step = n > 1 ? Math.min(62, Math.max(W.step, (height - W.top - visibleLast - pocketMin) / (n - 1))) : W.step;
+  var pocketTop = W.top + (n - 1) * step + visibleLast;
+  var pocketH = height - pocketTop;
+  var active = accounts.filter(function(a) { return a.id === selectedId; })[0] || null;
+  var activeStats = active ? stats[active.id] : null;
+  var breakdown = React.useMemo(function() {
+    if (!active) return null;
+    return finBreakdown(rows.filter(function(r) { return r.account_id === active.id; }), 'this_month');
+  }, [active, rows]);
+
+  return h('div', { className: 'glass-card fin-card' },
+    h('div', { className: 'card-header' },
+      h('div', null,
+        h('span', { className: 'card-title' }, 'Accounts'),
+        n > 0 && h('div', { className: 'fin-wallet-total' }, 'Total balance  ', h('b', { className: total < 0 ? 'fin-amount expense' : 'fin-amount' }, finMoney(total, cur)))
+      ),
+      h('button', { className: 'btn btn-primary btn-sm', onClick: onAdd, disabled: n >= FIN_MAX_ACCOUNTS, title: n >= FIN_MAX_ACCOUNTS ? 'Maximum ' + FIN_MAX_ACCOUNTS + ' accounts' : '' }, 'Add Account')
+    ),
+    n === 0
+      ? h('div', { className: 'empty-state' },
+          h('div', { className: 'empty-title' }, 'No accounts yet'),
+          h('div', { className: 'empty-desc' }, 'Add your bank or e-wallet accounts, then choose one every time you record a transaction.'),
+          h('button', { className: 'btn btn-primary', onClick: onAdd }, 'Add Account')
+        )
+      : h('div', { className: 'fin-wallet-stage', style: { '--fin-h': height + 'px' } },
+          h('div', { className: 'fin-wallet', style: { width: W.width, height: height } },
+            h('div', { className: 'fin-wallet-back', style: { top: W.top + 8 } }),
+            accounts.map(function(a, i) {
+              var st = stats[a.id];
+              return h('div', { key: a.id, className: 'fin-wcard' + (active && active.id === a.id ? ' lifted' : ''),
+                style: { top: W.top + i * step, height: W.cardH, zIndex: i + 1, background: 'linear-gradient(135deg, ' + a.color + ', ' + a.color + 'aa 60%, #0b1220 150%)' } },
+                h('div', { className: 'fin-wcard-top' },
+                  h('span', { className: 'fin-wcard-name' }, a.name),
+                  h('span', { className: 'fin-wcard-chip' })
+                ),
+                h('div', { className: 'fin-wcard-owner' }, owner),
+                h('div', { className: 'fin-wcard-balance' }, finMoney(st.balance, cur))
+              );
+            }),
+            h('div', { className: 'fin-wallet-pocket', style: { top: pocketTop, height: pocketH, zIndex: n + 5 } }),
+            accounts.map(function(a, i) {
+              var hitH = i < n - 1 ? step : visibleLast;
+              return h('div', { key: 'hit' + a.id, className: 'fin-whit', tabIndex: 0, role: 'button', 'aria-label': a.name,
+                style: { top: W.top + i * step, height: hitH, zIndex: n + 10 },
+                onKeyDown: function(e) { if (e.key === 'Enter') setSelectedId(selectedId === a.id ? null : a.id); },
+                onClick: function() { setSelectedId(selectedId === a.id ? null : a.id); },
+                onContextMenu: function(e) {
+                  UI.showContextMenu(e, [
+                    { label: 'Edit', action: function() { onEdit(a); } },
+                    { label: 'Delete', danger: true, action: function() { onDelete(a); } },
+                  ]);
+                } });
+            })
+          ),
+          h('div', { className: 'fin-wallet-side' },
+            active && h('div', { className: 'fin-wpanel' },
+              h('div', { className: 'fin-wpanel-head' }, h('span', { className: 'fin-dot', style: { background: active.color } }), active.name),
+              h('div', { className: 'fin-wpanel-row' }, h('span', null, 'Account holder'), h('b', null, owner)),
+              h('div', { className: 'fin-wpanel-row' }, h('span', null, 'Balance'), h('b', { className: 'fin-amount ' + (activeStats.balance < 0 ? 'expense' : 'income') }, finMoney(activeStats.balance, cur))),
+              h('div', { className: 'fin-wpanel-row' }, h('span', null, 'Initial balance'), h('b', null, finMoney(active.initial_balance, cur))),
+              h('div', { className: 'fin-wpanel-row' }, h('span', null, 'Income this month'), h('b', { className: 'fin-amount income' }, finMoney(activeStats.monthIncome, cur))),
+              h('div', { className: 'fin-wpanel-row' }, h('span', null, 'Expenses this month'), h('b', { className: 'fin-amount expense' }, finMoney(activeStats.monthExpense, cur))),
+              h('div', { className: 'fin-wpanel-row' }, h('span', null, 'Transactions this month'), h('b', null, activeStats.monthCount))
+            ),
+            active && h('div', { className: 'fin-wpanel fin-wpanel-expenses' },
+              h('div', { className: 'fin-wpanel-head' }, 'Expenses · ' + finMonthLabel(finMonthOf(new Date()))),
+              breakdown.list.length === 0
+                ? h('div', { className: 'fin-empty-chart', style: { flex: 1, height: 'auto' } }, 'No expenses this month')
+                : h(React.Fragment, null,
+                    h('div', { className: 'fin-wpanel-pie' },
+                      h(R.ResponsiveContainer, { width: '100%', height: '100%' },
+                        h(R.PieChart, null,
+                          h(R.Pie, { data: breakdown.list, dataKey: 'value', nameKey: 'name', innerRadius: 38, outerRadius: 62, paddingAngle: 2, stroke: 'none' },
+                            breakdown.list.map(function(d, i) { return h(R.Cell, { key: d.name, fill: finCategoryColor(d.name, i) }); })
+                          ),
+                          h(R.Tooltip, { content: finTip(cur) })
+                        )
+                      )
+                    ),
+                    h('div', { className: 'fin-legend fin-wpanel-legend' },
+                      breakdown.list.map(function(d, i) {
+                        return h('div', { key: d.name, className: 'fin-legend-row' },
+                          h('span', { className: 'fin-dot', style: { background: finCategoryColor(d.name, i) } }),
+                          h('span', { className: 'fin-legend-name' }, d.name),
+                          h('span', { className: 'fin-legend-amount' }, finMoney(d.value, cur)),
+                          h('span', { className: 'fin-legend-pct' }, ((d.value / breakdown.total) * 100).toFixed(1) + '%')
+                        );
+                      })
+                    )
+                  )
+            )
+          )
+        )
+  );
+}
+
+function FinTxModal({ tx, accounts, onClose, onSave, onGoAccounts }) {
+  var editing = !!(tx && tx.id);
+  var [type, setType] = React.useState(tx && tx.type ? tx.type : 'expense');
+  var [category, setCategory] = React.useState(tx ? tx.category || '' : '');
+  var [amount, setAmount] = React.useState(tx && tx.amount ? String(tx.amount) : '');
+  var [date, setDate] = React.useState(tx && tx.transaction_date ? tx.transaction_date : finToday());
+  var [accountId, setAccountId] = React.useState(tx && tx.account_id && accounts.some(function(a) { return a.id === tx.account_id; }) ? tx.account_id : '');
+  var [errors, setErrors] = React.useState({});
+  var [serverError, setServerError] = React.useState('');
+  var [busy, setBusy] = React.useState(false);
+
+  var cats = finCategoriesFor(type, editing && tx.type === type ? tx.category : '');
+  var cat = cats.indexOf(category) >= 0 ? category : cats[0];
+
+  async function submit() {
+    var e = {};
+    var a = Number(amount);
+    if (amount === '' || !isFinite(a) || a <= 0) e.amount = 'Enter an amount above 0';
+    else if (a >= 1e12) e.amount = 'Amount is too large';
+    if (!date || isNaN(finParse(date).getTime())) e.date = 'Choose a date';
+    if (!cat) e.category = 'Choose a category';
+    if (!accountId) e.account = 'Choose an account';
+    setErrors(e);
+    if (Object.keys(e).length) return;
+    var keepName = editing && tx.transaction_name && tx.transaction_name !== tx.category;
+    setBusy(true);
+    setServerError('');
+    try {
+      await onSave({
+        transaction_name: keepName ? tx.transaction_name : cat, type: type, category: cat,
+        amount: Math.round(a * 100) / 100, transaction_date: date, notes: editing ? (tx.notes || '') : '', account_id: accountId,
+      }, editing ? tx.id : null);
+      onClose();
+    } catch (err) {
+      setServerError(err && err.message ? err.message : 'Could not save the transaction');
+      setBusy(false);
+    }
+  }
+
+  var field = function(label, key, control) {
+    return h('div', { className: 'input-group' },
+      h('label', { className: 'input-label' }, label),
+      control,
+      errors[key] && h('div', { className: 'input-hint', style: { color: 'var(--red)' } }, errors[key])
+    );
+  };
+
+  var noAccounts = accounts.length === 0;
+
+  return h(UI.Modal, { open: true, onClose: onClose, title: editing ? 'Edit Transaction' : 'Add Transaction' },
+    noAccounts
+      ? h('div', { className: 'alert alert-danger' }, 'Create an account first, then choose it here. ',
+          h('button', { className: 'btn btn-ghost btn-sm', onClick: onGoAccounts }, 'Go to Account'))
+      : field('Account', 'account', h(UI.CustomDropdown, { value: accountId, onChange: setAccountId, placeholder: 'Select account', options: accounts.map(function(a) { return { value: a.id, label: a.name }; }) })),
+    h('div', { className: 'form-row' },
+      field('Amount', 'amount', h('input', { className: 'input-field', type: 'number', min: 0, step: 'any', placeholder: '0', autoFocus: true, value: amount, onChange: function(e) { setAmount(e.target.value); } })),
+      field('Category', 'category', h(UI.CustomDropdown, { value: cat, onChange: setCategory, options: cats.map(function(c) { return { value: c, label: c }; }) }))
+    ),
+    h('div', { className: 'input-group' },
+      h('label', { className: 'input-label' }, 'Type'),
+      h('div', { className: 'toggle-group', style: { display: 'inline-flex' } },
+        ['expense', 'income'].map(function(t) {
+          return h('div', { key: t, className: 'toggle-opt' + (type === t ? ' active' : ''), onClick: function() { setType(t); setCategory(''); } }, t === 'income' ? 'Income' : 'Expense');
+        })
+      )
+    ),
+    field('Date', 'date', h('input', { className: 'input-field', type: 'date', value: date, onChange: function(e) { setDate(e.target.value); } })),
+    serverError && h('div', { className: 'alert alert-danger' }, serverError),
+    h('div', { style: { display: 'flex', justifyContent: 'flex-end', gap: 8 } },
+      h('button', { className: 'btn btn-secondary', onClick: onClose, disabled: busy }, 'Cancel'),
+      h('button', { className: 'btn btn-primary', onClick: submit, disabled: busy || noAccounts }, busy ? 'Saving…' : (editing ? 'Save changes' : 'Add transaction'))
+    )
+  );
+}
+
+function FinTransactions({ rows, accounts, cur, onAdd, onEdit, onDelete }) {
+  var accountName = React.useMemo(function() {
+    var m = {};
+    accounts.forEach(function(a) { m[a.id] = a.name; });
+    return m;
+  }, [accounts]);
+  var [type, setType] = React.useState('all');
+  var [category, setCategory] = React.useState('all');
+  var [from, setFrom] = React.useState('');
+  var [to, setTo] = React.useState('');
+  var [month, setMonth] = React.useState('all');
+  var [year, setYear] = React.useState('all');
+  var [sort, setSort] = React.useState('newest');
+  var [page, setPage] = React.useState(1);
+
+  React.useEffect(function() { setPage(1); }, [type, category, from, to, month, year, sort]);
+
+  var years = React.useMemo(function() {
+    var seen = {};
+    rows.forEach(function(r) { seen[r.transaction_date.slice(0, 4)] = true; });
+    return Object.keys(seen).sort().reverse();
+  }, [rows]);
+
+  var categories = React.useMemo(function() {
+    var seen = {};
+    FIN_EXPENSE_CATEGORIES.concat(FIN_INCOME_CATEGORIES).forEach(function(c) { seen[c] = true; });
+    rows.forEach(function(r) { seen[r.category] = true; });
+    return Object.keys(seen);
+  }, [rows]);
+
+  var filtered = React.useMemo(function() {
+    var list = rows.filter(function(r) {
+      if (type !== 'all' && r.type !== type) return false;
+      if (category !== 'all' && r.category !== category) return false;
+      if (from && r.transaction_date < from) return false;
+      if (to && r.transaction_date > to) return false;
+      if (year !== 'all' && r.transaction_date.slice(0, 4) !== year) return false;
+      if (month !== 'all' && r.transaction_date.slice(5, 7) !== month) return false;
+      return true;
+    });
+    if (sort === 'oldest') list.sort(function(a, b) { return (a.transaction_date + (a.created_at || '')).localeCompare(b.transaction_date + (b.created_at || '')); });
+    else if (sort === 'highest') list.sort(function(a, b) { return b.amount - a.amount; });
+    else if (sort === 'lowest') list.sort(function(a, b) { return a.amount - b.amount; });
+    return list;
+  }, [rows, type, category, from, to, month, year, sort]);
+
+  var totals = finTotals(filtered);
+  var pages = Math.max(1, Math.ceil(filtered.length / FIN_PAGE_SIZE));
+  var current = Math.min(page, pages);
+  var slice = filtered.slice((current - 1) * FIN_PAGE_SIZE, current * FIN_PAGE_SIZE);
+  var active = type !== 'all' || category !== 'all' || from || to || month !== 'all' || year !== 'all';
+
+  function reset() { setType('all'); setCategory('all'); setFrom(''); setTo(''); setMonth('all'); setYear('all'); }
+
+  var months = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12'];
+  var monthOptions = [{ value: 'all', label: 'All months' }].concat(months.map(function(m) { return { value: m, label: finMonthLabel('2000-' + m, true) }; }));
+
+  return h('div', null,
+    h('div', { className: 'fin-toolbar' },
+      h('div', { className: 'input-group' },
+        h('label', { className: 'input-label' }, 'Type'),
+        h(UI.CustomDropdown, { value: type, onChange: setType, options: [{ value: 'all', label: 'All types' }, { value: 'income', label: 'Income' }, { value: 'expense', label: 'Expense' }] })
+      ),
+      h('div', { className: 'input-group' },
+        h('label', { className: 'input-label' }, 'Category'),
+        h(UI.CustomDropdown, { value: category, onChange: setCategory, options: [{ value: 'all', label: 'All categories' }].concat(categories.map(function(c) { return { value: c, label: c }; })) })
+      ),
+      h('div', { className: 'input-group' },
+        h('label', { className: 'input-label' }, 'Month'),
+        h(UI.CustomDropdown, { value: month, onChange: setMonth, options: monthOptions })
+      ),
+      h('div', { className: 'input-group' },
+        h('label', { className: 'input-label' }, 'Year'),
+        h(UI.CustomDropdown, { value: year, onChange: setYear, options: [{ value: 'all', label: 'All years' }].concat(years.map(function(y) { return { value: y, label: y }; })) })
+      ),
+      h('div', { className: 'input-group' },
+        h('label', { className: 'input-label' }, 'From'),
+        h('input', { className: 'input-field', type: 'date', value: from, onChange: function(e) { setFrom(e.target.value); } })
+      ),
+      h('div', { className: 'input-group' },
+        h('label', { className: 'input-label' }, 'To'),
+        h('input', { className: 'input-field', type: 'date', value: to, onChange: function(e) { setTo(e.target.value); } })
+      ),
+      h('div', { className: 'input-group' },
+        h('label', { className: 'input-label' }, 'Sort by'),
+        h(UI.CustomDropdown, { value: sort, onChange: setSort, options: [
+          { value: 'newest', label: 'Newest first' }, { value: 'oldest', label: 'Oldest first' },
+          { value: 'highest', label: 'Highest amount' }, { value: 'lowest', label: 'Lowest amount' },
+        ] })
+      ),
+      active && h('div', { className: 'fin-toolbar-actions' },
+        h('button', { className: 'btn btn-ghost', onClick: reset }, 'Reset filters')
+      )
+    ),
+
+    h('div', { className: 'fin-totals' },
+      h('div', null, h('span', null, 'Total income'), h('b', { className: 'fin-amount income' }, finMoney(totals.income, cur))),
+      h('div', null, h('span', null, 'Total expenses'), h('b', { className: 'fin-amount expense' }, finMoney(totals.expense, cur))),
+      h('div', null, h('span', null, 'Net amount'), h('b', { className: 'fin-amount ' + (totals.net >= 0 ? 'income' : 'expense') }, finMoney(totals.net, cur))),
+      h('div', null, h('span', null, 'Results'), h('b', null, filtered.length))
+    ),
+
+    filtered.length === 0
+      ? h('div', { className: 'empty-state' },
+          h('div', { className: 'empty-title' }, rows.length === 0 ? 'No transactions yet' : 'No transactions match your filters'),
+          h('div', { className: 'empty-desc' }, rows.length === 0 ? 'Add your first income or expense to get started.' : 'Try different filters.'),
+          rows.length === 0
+            ? h('button', { className: 'btn btn-primary', onClick: onAdd }, 'Add Transaction')
+            : h('button', { className: 'btn btn-secondary', onClick: reset }, 'Reset filters')
+        )
+      : h('div', null,
+          h('div', { className: 'table-wrap' },
+            h('table', { className: 'data-table fin-table' },
+              h('thead', null, h('tr', null, ['Category', 'Account', 'Type', 'Date', 'Time', 'Amount'].map(function(c) { return h('th', { key: c }, c); }))),
+              h('tbody', null,
+                slice.map(function(r) {
+                  return h('tr', { key: r.id,
+                    onContextMenu: function(e) {
+                      UI.showContextMenu(e, [
+                        { label: 'Edit', action: function() { onEdit(r); } },
+                        { label: 'Delete', danger: true, action: function() { onDelete(r); } },
+                      ]);
+                    } },
+                    h('td', { className: 'text-col' }, r.category),
+                    h('td', null, accountName[r.account_id] || '—'),
+                    h('td', null, h('span', { className: 'badge ' + (r.type === 'income' ? 'badge-green' : 'badge-red') }, r.type === 'income' ? 'Income' : 'Expense')),
+                    h('td', null, finDateLabel(r.transaction_date)),
+                    h('td', null, finTimeOf(r)),
+                    h('td', { className: 'fin-amount ' + (r.type === 'income' ? 'income' : 'expense') }, finMoney(r.amount, cur))
+                  );
+                })
+              )
+            )
+          ),
+          h('div', { className: 'fin-pager' },
+            h('span', { className: 'fin-pager-info' }, 'Showing ' + ((current - 1) * FIN_PAGE_SIZE + 1) + ' to ' + Math.min(current * FIN_PAGE_SIZE, filtered.length) + ' of ' + filtered.length),
+            h('div', { style: { display: 'flex', alignItems: 'center', gap: 10 } },
+              h('button', { className: 'btn btn-secondary btn-sm', disabled: current <= 1, onClick: function() { setPage(current - 1); } }, 'Previous'),
+              h('span', { className: 'fin-pager-info' }, 'Page ' + current + ' of ' + pages),
+              h('button', { className: 'btn btn-secondary btn-sm', disabled: current >= pages, onClick: function() { setPage(current + 1); } }, 'Next')
+            )
+          )
+        )
   );
 }
 
 function FinancePage() {
-  var R = window.Recharts;
-  var [loaded, setLoaded] = React.useState(false);
+  var cur = 'IDR';
+  var [rows, setRows] = React.useState([]);
   var [accounts, setAccounts] = React.useState([]);
-  var [txs, setTxs] = React.useState([]);
-  var [cur, setCur] = React.useState('IDR');
-  var [month, setMonth] = React.useState(Calc.currentMonthKey());
-  var [view, setView] = React.useState('expense');
-  var [txModal, setTxModal] = React.useState(null);
   var [accModal, setAccModal] = React.useState(null);
-  var [delTx, setDelTx] = React.useState(null);
   var [delAcc, setDelAcc] = React.useState(null);
+  var [status, setStatus] = React.useState('loading');
+  var [error, setError] = React.useState('');
+  var [tab, setTab] = React.useState('overview');
+  var [modal, setModal] = React.useState(null);
+  var [delTx, setDelTx] = React.useState(null);
 
-  React.useEffect(function() {
-    var live = true;
-    Promise.all([
-      DB.getAll('finance_accounts'),
-      DB.getAll('finance_tx'),
-      DB.get('finance_prefs', 'prefs').catch(function() { return null; }),
-    ]).then(function(r) {
-      if (!live) return;
-      setAccounts(r[0] || []);
-      setTxs(r[1] || []);
-      if (r[2] && r[2].currency) setCur(r[2].currency);
-      setLoaded(true);
-    }).catch(function() { if (live) setLoaded(true); });
-    return function() { live = false; };
+  var load = React.useCallback(async function() {
+    setStatus('loading');
+    try {
+      var res = await Promise.all([FinanceDB.fetchAll(), FinanceAccountsDB.fetchAll()]);
+      setRows(finSortRows(res[0]));
+      setAccounts(res[1]);
+      setStatus('ready');
+    } catch (err) {
+      setError(err && err.message ? err.message : 'Unknown error');
+      setStatus('error');
+    }
   }, []);
 
+  React.useEffect(function() { load(); }, [load]);
+
   React.useEffect(function() {
-    function onAdd() {
-      if (accounts.length === 0) setAccModal({});
-      else setTxModal({});
-    }
+    window.dispatchEvent(new CustomEvent('financeTab', { detail: tab }));
+  }, [tab]);
+
+  React.useEffect(function() {
+    function onAdd() { setModal({}); }
     window.addEventListener('openFinanceTx', onAdd);
     return function() { window.removeEventListener('openFinanceTx', onAdd); };
-  }, [accounts.length]);
+  }, []);
 
-  async function changeCurrency(v) {
-    setCur(v);
-    await DB.put('finance_prefs', { id: 'prefs', currency: v });
+  async function saveTx(payload, id) {
+    var row = id ? await FinanceDB.update(id, payload) : await FinanceDB.insert(payload);
+    setRows(function(prev) { return finSortRows(prev.filter(function(r) { return r.id !== row.id; }).concat(row)); });
+    UI.toast(id ? 'Transaction updated' : 'Transaction added', 'success');
   }
 
-  async function saveTx(tx) {
-    await DB.put('finance_tx', tx);
-    setTxs(function(prev) { return prev.filter(function(t) { return t.id !== tx.id; }).concat(tx); });
-  }
-
-  async function removeTx(id) {
-    await DB.delete('finance_tx', id);
-    setTxs(function(prev) { return prev.filter(function(t) { return t.id !== id; }); });
+  async function removeTx() {
+    var target = delTx;
+    if (!target) return;
+    try {
+      await FinanceDB.remove(target.id);
+      setRows(function(prev) { return prev.filter(function(r) { return r.id !== target.id; }); });
+      UI.toast('Transaction deleted', 'success');
+    } catch (err) {
+      UI.toast(err && err.message ? err.message : 'Could not delete the transaction', 'error');
+    }
     setDelTx(null);
   }
 
-  async function saveAccount(a) {
-    await DB.put('finance_accounts', a);
-    setAccounts(function(prev) { return prev.filter(function(x) { return x.id !== a.id; }).concat(a); });
+  async function saveAccount(payload, id) {
+    var row = id ? await FinanceAccountsDB.update(id, payload) : await FinanceAccountsDB.insert(Object.assign({}, payload, { sort_order: accounts.length }));
+    setAccounts(function(prev) {
+      var next = id ? prev.map(function(a) { return a.id === id ? row : a; }) : prev.concat(row);
+      return next;
+    });
+    UI.toast(id ? 'Account updated' : 'Account added', 'success');
   }
 
-  async function removeAccount(id) {
-    var related = txs.filter(function(t) { return t.accountId === id || t.toAccountId === id; });
-    await Promise.all(related.map(function(t) { return DB.delete('finance_tx', t.id); }));
-    await DB.delete('finance_accounts', id);
-    setTxs(function(prev) { return prev.filter(function(t) { return t.accountId !== id && t.toAccountId !== id; }); });
-    setAccounts(function(prev) { return prev.filter(function(a) { return a.id !== id; }); });
+  async function removeAccount() {
+    var target = delAcc;
+    if (!target) return;
+    try {
+      await FinanceAccountsDB.remove(target.id);
+      setAccounts(function(prev) { return prev.filter(function(a) { return a.id !== target.id; }); });
+      setRows(function(prev) { return prev.map(function(r) { return r.account_id === target.id ? Object.assign({}, r, { account_id: null }) : r; }); });
+      UI.toast('Account deleted', 'success');
+    } catch (err) {
+      UI.toast(err && err.message ? err.message : 'Could not delete the account', 'error');
+    }
     setDelAcc(null);
+    setAccModal(null);
   }
 
-  var balances = React.useMemo(function() {
-    var map = {};
-    accounts.forEach(function(a) { map[a.id] = a.opening || 0; });
-    txs.forEach(function(t) {
-      if (t.type === 'income' && map[t.accountId] !== undefined) map[t.accountId] += t.amount;
-      if (t.type === 'expense' && map[t.accountId] !== undefined) map[t.accountId] -= t.amount;
-      if (t.type === 'transfer') {
-        if (map[t.accountId] !== undefined) map[t.accountId] -= t.amount;
-        if (map[t.toAccountId] !== undefined) map[t.toAccountId] += t.amount;
-      }
-    });
-    return map;
-  }, [accounts, txs]);
-
-  var totalBalance = accounts.reduce(function(s, a) { return s + (balances[a.id] || 0); }, 0);
-
-  function sumFor(ym, type) {
-    return txs.filter(function(t) { return t.type === type && t.date && t.date.slice(0, 7) === ym; })
-      .reduce(function(s, t) { return s + t.amount; }, 0);
-  }
-
-  var income = sumFor(month, 'income');
-  var expense = sumFor(month, 'expense');
-  var net = income - expense;
-
-  var monthTxs = txs.filter(function(t) { return t.date && t.date.slice(0, 7) === month; })
-    .sort(function(a, b) { return (b.date + (b.createdAt || '')).localeCompare(a.date + (a.createdAt || '')); });
-
-  var breakdown = React.useMemo(function() {
-    var by = {};
-    txs.forEach(function(t) {
-      if (t.type !== view || !t.date || t.date.slice(0, 7) !== month) return;
-      by[t.category || 'Other'] = (by[t.category || 'Other'] || 0) + t.amount;
-    });
-    return Object.keys(by).map(function(k) { return { name: k, value: by[k] }; })
-      .sort(function(a, b) { return b.value - a.value; });
-  }, [txs, view, month]);
-  var breakdownTotal = breakdown.reduce(function(s, d) { return s + d.value; }, 0);
-
-  var trend = [];
-  for (var i = 5; i >= 0; i--) {
-    var ym = finShiftMonth(month, -i);
-    trend.push({ month: finMonthName(ym, true), Income: sumFor(ym, 'income'), Expense: sumFor(ym, 'expense') });
-  }
-
-  var accName = function(id) { var a = accounts.find(function(x) { return x.id === id; }); return a ? a.name : ''; };
-  var tip = finTip(cur);
-
-  if (!loaded) return h('div', { className: 'page-body', style: { paddingTop: 80, display: 'flex', justifyContent: 'center' } }, h('div', { className: 'spinner' }));
+  var owner = displayName(window.currentSupabaseUser);
+  var openAdd = function() { setModal({}); };
+  var openEdit = function(r) { setModal(r); };
+  var openDelete = function(r) { setDelTx(r); };
 
   return h('div', null,
-    h('div', { className: 'page-header' },
-      h('div', null,
-        h('div', { className: 'page-title' }, 'Finance'),
-        h('div', { className: 'page-subtitle' }, 'Income, expenses and balances')
-      ),
-      h('div', { className: 'toggle-group' },
-        ['IDR', 'USD'].map(function(c) {
-          return h('div', { key: c, className: 'toggle-opt' + (cur === c ? ' active' : ''), onClick: function() { changeCurrency(c); } }, c === 'IDR' ? 'Rupiah' : 'USD');
-        })
-      )
+    h('div', { className: 'page-header', style: { paddingBottom: 0 } },
+      h('div', null, h('div', { className: 'page-title' }, 'Finance'))
+    ),
+    h('div', { className: 'page-tabs' },
+      [['overview', 'Overview'], ['accounts', 'Account'], ['transactions', 'Transaction']].map(function(t) {
+        return h('div', { key: t[0], className: 'page-tab' + (tab === t[0] ? ' active' : ''), onClick: function() { setTab(t[0]); } }, t[1]);
+      })
     ),
 
     h('div', { className: 'page-body' },
-      h('div', { style: { display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 } },
-        h('button', { className: 'btn btn-secondary btn-icon', onClick: function() { setMonth(finShiftMonth(month, -1)); } },
-          h(UI.Icon, { name: 'chevronL', size: 14 })),
-        h('div', { style: { fontSize: 15, fontWeight: 600, minWidth: 150, textAlign: 'center' } }, finMonthName(month)),
-        h('button', { className: 'btn btn-secondary btn-icon', onClick: function() { setMonth(finShiftMonth(month, 1)); } },
-          h(UI.Icon, { name: 'chevronR', size: 14 }))
+      status === 'loading' && h('div', { className: 'fin-state' }, h('div', { className: 'spinner lg' }), h('div', null, 'Loading transactions…')),
+
+      status === 'error' && h('div', { className: 'glass-card fin-state-card' },
+        h('div', { className: 'empty-title' }, 'Could not load your transactions'),
+        h('div', { className: 'empty-desc' }, error),
+        h('div', { className: 'empty-desc', style: { marginTop: -8 } }, 'If this is the first time, run supabase/migrations/20261109_finance_transactions.sql and then 20261121_finance_accounts.sql in the Supabase SQL Editor.'),
+        h('button', { className: 'btn btn-secondary', onClick: load }, 'Try again')
       ),
 
-      h('div', { className: 'grid-stats mb-24' },
-        h('div', { className: 'stat-block' },
-          h('div', { className: 'stat-label' }, 'Total Balance'),
-          h('div', { className: 'stat-value' }, finMoney(totalBalance, cur)),
-          h('div', { className: 'stat-sub' }, accounts.length + (accounts.length === 1 ? ' account' : ' accounts'))
-        ),
-        h('div', { className: 'stat-block' },
-          h('div', { className: 'stat-label' }, 'Income'),
-          h('div', { className: 'stat-value positive' }, finMoney(income, cur)),
-          h('div', { className: 'stat-sub' }, finMonthName(month))
-        ),
-        h('div', { className: 'stat-block' },
-          h('div', { className: 'stat-label' }, 'Expense'),
-          h('div', { className: 'stat-value negative' }, finMoney(expense, cur)),
-          h('div', { className: 'stat-sub' }, finMonthName(month))
-        ),
-        h('div', { className: 'stat-block' },
-          h('div', { className: 'stat-label' }, 'Net'),
-          h('div', { className: 'stat-value ' + (net >= 0 ? 'positive' : 'negative') }, finMoney(Math.abs(net), cur)),
-          h('div', { className: 'stat-sub' }, net >= 0 ? 'Saved this month' : 'Overspent this month')
-        )
-      ),
-
-      h('div', { className: 'grid-2 mb-24', style: { alignItems: 'flex-start' } },
-        h('div', { className: 'glass-card' },
-          h('div', { className: 'card-header' },
-            h('span', { className: 'card-title' }, 'By category'),
-            h('div', { className: 'toggle-group' },
-              ['expense', 'income'].map(function(v) {
-                return h('div', { key: v, className: 'toggle-opt' + (view === v ? ' active' : ''), style: { padding: '4px 12px', fontSize: 11.5 }, onClick: function() { setView(v); } }, v === 'expense' ? 'Expense' : 'Income');
-              })
-            )
-          ),
-          h('div', { className: 'card-body' },
-            breakdown.length === 0
-              ? h('div', { style: { height: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--t3)', fontSize: 12.5 } }, 'No ' + view + ' recorded this month')
-              : h('div', { style: { display: 'flex', alignItems: 'center', gap: 20, flexWrap: 'wrap' } },
-                  h('div', { style: { width: 190, height: 190, flexShrink: 0 } },
-                    h(R.ResponsiveContainer, { width: '100%', height: '100%' },
-                      h(R.PieChart, null,
-                        h(R.Pie, { data: breakdown, dataKey: 'value', nameKey: 'name', innerRadius: 55, outerRadius: 88, paddingAngle: 2, stroke: 'none' },
-                          breakdown.map(function(d, i) { return h(R.Cell, { key: d.name, fill: FIN_COLORS[i % FIN_COLORS.length] }); })
-                        ),
-                        h(R.Tooltip, { content: tip })
-                      )
-                    )
-                  ),
-                  h('div', { style: { flex: 1, minWidth: 160 } },
-                    breakdown.map(function(d, i) {
-                      return h('div', { key: d.name, style: { display: 'flex', alignItems: 'center', gap: 10, padding: '7px 0', fontSize: 12.5 } },
-                        h('span', { style: { width: 9, height: 9, borderRadius: 3, background: FIN_COLORS[i % FIN_COLORS.length], flexShrink: 0 } }),
-                        h('span', { style: { flex: 1, color: 'var(--t2)' } }, d.name),
-                        h('span', { style: { color: 'var(--t1)', fontWeight: 600 } }, finMoney(d.value, cur)),
-                        h('span', { style: { color: 'var(--t3)', width: 38, textAlign: 'right' } }, Math.round((d.value / breakdownTotal) * 100) + '%')
-                      );
-                    })
-                  )
-                )
+      status === 'ready' && tab === 'overview' && (rows.length === 0
+        ? h('div', { className: 'empty-state' },
+            h('div', { className: 'empty-title' }, 'No transactions yet'),
+            h('div', { className: 'empty-desc' }, 'Add your first income or expense and the dashboard fills in from there.'),
+            h('button', { className: 'btn btn-primary', onClick: openAdd }, 'Add Transaction')
           )
-        ),
-
-        h('div', { className: 'glass-card' },
-          h('div', { className: 'card-header' },
-            h('span', { className: 'card-title' }, 'Accounts'),
-            h('button', { className: 'btn btn-ghost btn-sm', onClick: function() { setAccModal({}); } }, 'Add account')
-          ),
-          h('div', { className: 'card-body' },
-            accounts.length === 0
-              ? h('div', { style: { height: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--t3)', fontSize: 12.5 } }, 'Add an account to start recording')
-              : accounts.slice().sort(function(a, b) { return (balances[b.id] || 0) - (balances[a.id] || 0); }).map(function(a) {
-                  return h('div', { key: a.id, className: 'metric-row',
-                    onContextMenu: function(e) {
-                      UI.showContextMenu(e, [
-                        { label: 'Edit Account', action: function() { setAccModal(a); } },
-                        { label: 'Delete Account', danger: true, action: function() { setDelAcc(a.id); } },
-                      ]);
-                    } },
-                    h('div', null,
-                      h('div', { style: { fontSize: 13.5, color: 'var(--t1)', fontWeight: 500 } }, a.name),
-                      h('div', { style: { fontSize: 11, color: 'var(--t3)', marginTop: 2 } }, a.type)
-                    ),
-                    h('span', { className: 'metric-val', style: { color: (balances[a.id] || 0) < 0 ? 'var(--red)' : 'var(--t1)' } }, finMoney(balances[a.id] || 0, cur))
-                  );
-                })
-          )
-        )
-      ),
-
-      h('div', { className: 'grid-2', style: { alignItems: 'flex-start' } },
-        h('div', { className: 'glass-card' },
-          h('div', { className: 'card-header' }, h('span', { className: 'card-title' }, 'Cash flow'), h('span', { style: { fontSize: 11, color: 'var(--t3)' } }, 'Last 6 months')),
-          h('div', { style: { padding: '14px 8px 8px' } },
-            h(R.ResponsiveContainer, { width: '100%', height: 240 },
-              h(R.BarChart, { data: trend, margin: { left: 0, right: 12, top: 4, bottom: 0 } },
-                h(R.CartesianGrid, { stroke: 'rgba(255,255,255,0.06)', vertical: false }),
-                h(R.XAxis, { dataKey: 'month', tick: { fontSize: 11, fill: 'var(--t3)' }, tickLine: false, axisLine: false }),
-                h(R.YAxis, { tick: { fontSize: 10, fill: 'var(--t4)' }, tickLine: false, axisLine: false, width: 52, tickFormatter: function(v) { return finShort(v, cur); } }),
-                h(R.Tooltip, { content: tip, cursor: { fill: 'rgba(255,255,255,0.04)' } }),
-                h(R.Bar, { dataKey: 'Income', fill: '#34d399', radius: [4, 4, 0, 0], maxBarSize: 22 }),
-                h(R.Bar, { dataKey: 'Expense', fill: '#f87171', radius: [4, 4, 0, 0], maxBarSize: 22 })
-              )
+        : h('div', null,
+            h(FinStats, { rows: rows, cur: cur }),
+            h('div', { className: 'fin-main-grid' },
+              h(FinTrend, { rows: rows, cur: cur }),
+              h(FinBreakdown, { rows: rows, cur: cur })
+            ),
+            h('div', { className: 'fin-bottom-grid' },
+              h(FinMonthly, { rows: rows, cur: cur }),
+              h(FinRecent, { rows: rows, cur: cur, onViewAll: function() { setTab('transactions'); }, onEdit: openEdit, onDelete: openDelete })
             )
           )
-        ),
+      ),
 
-        h('div', { className: 'glass-card' },
-          h('div', { className: 'card-header' }, h('span', { className: 'card-title' }, 'Transactions'), h('span', { style: { fontSize: 11, color: 'var(--t3)' } }, monthTxs.length + ' this month')),
-          h('div', { className: 'card-body', style: { paddingTop: 6, paddingBottom: 10, maxHeight: 320, overflowY: 'auto' } },
-            monthTxs.length === 0
-              ? h('div', { style: { height: 180, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--t3)', fontSize: 12.5 } }, 'No transactions this month')
-              : monthTxs.map(function(t) {
-                  var isTransfer = t.type === 'transfer';
-                  return h('div', { key: t.id, className: 'metric-row',
-                    onContextMenu: function(e) {
-                      UI.showContextMenu(e, [
-                        { label: 'Edit', action: function() { setTxModal(t); } },
-                        { label: 'Delete', danger: true, action: function() { setDelTx(t.id); } },
-                      ]);
-                    } },
-                    h('div', { style: { minWidth: 0 } },
-                      h('div', { style: { fontSize: 13, color: 'var(--t1)' } }, isTransfer ? 'Transfer' : t.category),
-                      h('div', { style: { fontSize: 11, color: 'var(--t3)', marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } },
-                        t.date.slice(5) + '   ' + (isTransfer ? accName(t.accountId) + ' to ' + accName(t.toAccountId) : accName(t.accountId)) + (t.note ? '   ' + t.note : ''))
-                    ),
-                    h('span', { className: 'metric-val', style: { color: isTransfer ? 'var(--t2)' : (t.type === 'income' ? 'var(--green)' : 'var(--red)') } }, finMoney(t.amount, cur))
-                  );
-                })
-          )
-        )
-      )
+      status === 'ready' && tab === 'accounts' && h(FinWallet, {
+        accounts: accounts, rows: rows, cur: cur, owner: owner,
+        onAdd: function() { setAccModal({}); }, onEdit: function(a) { setAccModal(a); }, onDelete: function(a) { setDelAcc(a); },
+      }),
+
+      status === 'ready' && tab === 'transactions' && h(FinTransactions, {
+        rows: rows, accounts: accounts, cur: cur, onAdd: openAdd, onEdit: openEdit, onDelete: openDelete,
+      })
     ),
 
-    txModal && h(UI.Modal, { open: true, onClose: function() { setTxModal(null); }, title: txModal.id ? 'Edit Transaction' : 'New Transaction' },
-      h(FinTxForm, { tx: txModal, accounts: accounts, txs: txs, onSave: saveTx, onClose: function() { setTxModal(null); } })
-    ),
-    accModal && h(UI.Modal, { open: true, onClose: function() { setAccModal(null); }, title: accModal.id ? 'Edit Account' : 'New Account' },
-      h(FinAccountForm, { acc: accModal.id ? accModal : null, onSave: saveAccount, onClose: function() { setAccModal(null); } })
-    ),
-    h(UI.ConfirmModal, { open: !!delTx, onClose: function() { setDelTx(null); }, onConfirm: function() { removeTx(delTx); }, title: 'Delete transaction', message: 'This transaction will be removed and the account balance is recalculated.' }),
-    h(UI.ConfirmModal, { open: !!delAcc, onClose: function() { setDelAcc(null); }, onConfirm: function() { removeAccount(delAcc); }, title: 'Delete account', message: 'The account and every transaction recorded on it will be deleted.' })
+    modal && h(FinTxModal, { tx: modal.id ? modal : null, accounts: accounts, onClose: function() { setModal(null); }, onSave: saveTx,
+      onGoAccounts: function() { setModal(null); setTab('accounts'); } }),
+    accModal && h(FinAccountModal, { account: accModal.id ? accModal : null, owner: owner, nextColor: FIN_ACCOUNT_COLORS[accounts.length % FIN_ACCOUNT_COLORS.length],
+      onClose: function() { setAccModal(null); }, onSave: saveAccount, onDelete: function(a) { setDelAcc(a); } }),
+    h(UI.ConfirmModal, {
+      open: !!delAcc, onClose: function() { setDelAcc(null); }, onConfirm: removeAccount,
+      title: 'Delete account',
+      message: delAcc ? 'Delete ' + delAcc.name + '? Its transactions are kept but will no longer belong to any account, so they stop counting in account balances. This cannot be undone.' : '',
+    }),
+    h(UI.ConfirmModal, {
+      open: !!delTx, onClose: function() { setDelTx(null); }, onConfirm: removeTx,
+      title: 'Delete transaction',
+      message: delTx ? 'Delete this ' + delTx.category + ' transaction? The dashboard and totals update right away. This cannot be undone.' : '',
+    })
   );
 }
 
