@@ -241,28 +241,95 @@ function getPortal() {
   return _ddPortal;
 }
 
-function CustomDropdown({ value, onChange, options, placeholder }) {
-  var [open,    setOpen]   = React.useState(false);
-  var [pos,     setPos]    = React.useState({ top:0, left:0, width:120 });
-  var wrapRef  = React.useRef(null);
-  var menuRef  = React.useRef(null);
+function CustomDropdown({ value, onChange, options, placeholder, disabled, size }) {
+  var [open, setOpen] = React.useState(false);
+  var [pos, setPos]   = React.useState({ left: 0, top: 0, bottom: null, minWidth: 120, maxHeight: 260, maxWidth: 360 });
+  var [hi, setHi]     = React.useState(-1);
+  var wrapRef    = React.useRef(null);
+  var triggerRef = React.useRef(null);
+  var menuRef    = React.useRef(null);
+  var typeRef    = React.useRef({ text: '', t: null });
 
-  function calcPos() {
-    if (!wrapRef.current) return null;
-    var r = wrapRef.current.getBoundingClientRect();
-    var opts  = options || [];
-    var menuH = Math.min(opts.length * 36 + 10, 260);
-    var top   = (window.innerHeight - r.bottom > menuH + 8)
-      ? r.bottom + 4
-      : r.top - menuH - 4;
-    return { top: Math.max(4, top), left: r.left, width: Math.max(r.width, 120) };
+  var list = (options || []).map(function(opt) {
+    var v = (opt && opt.value !== undefined) ? opt.value : opt;
+    var l = (opt && opt.label !== undefined && opt.label !== null) ? String(opt.label) : String(opt == null ? '' : opt);
+    return { value: v, label: l, disabled: !!(opt && opt.disabled) };
+  });
+  var selIdx = list.findIndex(function(o) { return o.value === value; });
+
+  function measure() {
+    var el = triggerRef.current;
+    if (!el) return null;
+    var r = el.getBoundingClientRect();
+    var vh = window.innerHeight, vw = window.innerWidth;
+    var want = Math.min(list.length * 36 + 10, 280);
+    var below = vh - r.bottom - 12, above = r.top - 12;
+    var up = below < Math.min(want, 180) && above > below;
+    var maxH = Math.max(120, Math.min(280, up ? above : below));
+    var minW = Math.max(r.width, 120);
+    var left = Math.min(Math.max(8, r.left), Math.max(8, vw - minW - 8));
+    return {
+      left: left, minWidth: minW, maxHeight: maxH, maxWidth: Math.max(minW, vw - left - 8),
+      top: up ? null : r.bottom + 4, bottom: up ? vh - r.top + 4 : null,
+    };
   }
 
-  function open_menu(e) {
-    e.stopPropagation();
-    var p = calcPos();
+  function firstEnabled(from, dir) {
+    for (var i = from; i >= 0 && i < list.length; i += dir) if (!list[i].disabled) return i;
+    return -1;
+  }
+
+  function openMenu() {
+    if (disabled) return;
+    var p = measure();
     if (p) setPos(p);
-    setOpen(function(o) { return !o; });
+    setHi(selIdx >= 0 ? selIdx : firstEnabled(0, 1));
+    setOpen(true);
+  }
+
+  function closeMenu(refocus) {
+    setOpen(false);
+    if (refocus && triggerRef.current) triggerRef.current.focus();
+  }
+
+  function choose(i) {
+    var o = list[i];
+    if (!o || o.disabled) return;
+    onChange(o.value);
+    closeMenu(true);
+  }
+
+  function toggle(e) {
+    e.stopPropagation();
+    if (open) closeMenu(false); else openMenu();
+  }
+
+  function move(dir) {
+    var start = hi < 0 ? (dir > 0 ? 0 : list.length - 1) : hi + dir;
+    var next = firstEnabled(start, dir);
+    if (next >= 0) setHi(next);
+  }
+
+  function onKeyDown(e) {
+    var k = e.key;
+    if (!open) {
+      if (k === 'ArrowDown' || k === 'ArrowUp' || k === 'Enter' || k === ' ') { e.preventDefault(); openMenu(); }
+      return;
+    }
+    if (k === 'ArrowDown') { e.preventDefault(); move(1); }
+    else if (k === 'ArrowUp') { e.preventDefault(); move(-1); }
+    else if (k === 'Home') { e.preventDefault(); setHi(firstEnabled(0, 1)); }
+    else if (k === 'End') { e.preventDefault(); setHi(firstEnabled(list.length - 1, -1)); }
+    else if (k === 'Enter' || k === ' ') { e.preventDefault(); if (hi >= 0) choose(hi); }
+    else if (k === 'Tab') { setOpen(false); }
+    else if (k.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      var t = typeRef.current;
+      clearTimeout(t.t);
+      t.text += k.toLowerCase();
+      t.t = setTimeout(function() { t.text = ''; }, 600);
+      var idx = list.findIndex(function(o) { return !o.disabled && o.label.toLowerCase().indexOf(t.text) === 0; });
+      if (idx >= 0) setHi(idx);
+    }
   }
 
   React.useEffect(function() {
@@ -272,71 +339,70 @@ function CustomDropdown({ value, onChange, options, placeholder }) {
       if ((w && w.contains(e.target)) || (m && m.contains(e.target))) return;
       setOpen(false);
     }
-    var t = setTimeout(function() {
-      document.addEventListener('mousedown', onDown, true);
-    }, 0);
+    function onEsc(e) {
+      if (e.key !== 'Escape') return;
+      e.stopPropagation();
+      closeMenu(true);
+    }
+    function reposition() {
+      var p = measure();
+      if (p) setPos(p);
+    }
+    var t = setTimeout(function() { document.addEventListener('mousedown', onDown, true); }, 0);
+    document.addEventListener('keydown', onEsc, true);
+    window.addEventListener('scroll', reposition, true);
+    window.addEventListener('resize', reposition);
     return function() {
       clearTimeout(t);
       document.removeEventListener('mousedown', onDown, true);
+      document.removeEventListener('keydown', onEsc, true);
+      window.removeEventListener('scroll', reposition, true);
+      window.removeEventListener('resize', reposition);
     };
   }, [open]);
 
   React.useEffect(function() {
-    if (!open) return;
-    function onScroll() {
-      var p = calcPos();
-      if (p) setPos(p);
-    }
-    window.addEventListener('scroll', onScroll, true);
-    window.addEventListener('resize', onScroll);
-    return function() {
-      window.removeEventListener('scroll', onScroll, true);
-      window.removeEventListener('resize', onScroll);
-    };
-  }, [open]);
+    if (!open || !menuRef.current) return;
+    var el = menuRef.current.querySelector('.hi');
+    if (el && el.scrollIntoView) el.scrollIntoView({ block: 'nearest' });
+  }, [open, hi]);
 
-  var sel = (options || []).find(function(o) {
-    return (o && o.value !== undefined ? o.value : o) === value;
-  });
-  var label = sel
-    ? (sel.label !== undefined && sel.label !== null ? String(sel.label) : String(sel))
-    : (placeholder || 'Select');
+  var sel = selIdx >= 0 ? list[selIdx] : null;
 
   var menu = open
     ? ReactDOM.createPortal(
         h('div', {
           ref: menuRef,
           className: 'custom-dropdown-menu',
-          style: { position:'fixed', top: pos.top, left: pos.left, minWidth: pos.width,
-                   zIndex: 999999, maxHeight: 260, overflowY: 'auto' },
+          role: 'listbox',
+          style: { position: 'fixed', top: pos.top === null ? 'auto' : pos.top, bottom: pos.bottom === null ? 'auto' : pos.bottom,
+                   left: pos.left, minWidth: pos.minWidth, maxWidth: pos.maxWidth, maxHeight: pos.maxHeight, zIndex: 999999, overflowY: 'auto' },
           onMouseDown: function(e) { e.preventDefault(); },
         },
-          (options || []).map(function(opt, i) {
-            var optVal   = (opt && opt.value !== undefined) ? opt.value : opt;
-            var optLabel = (opt && opt.label !== undefined && opt.label !== null)
-              ? String(opt.label) : String(opt == null ? '' : opt);
-            var isSel = optVal === value;
-            return h('div', {
-              key: i,
-              className: 'custom-dropdown-item' + (isSel ? ' selected' : ''),
-              onClick: function(e) {
-                e.stopPropagation();
-                onChange(optVal);
-                setOpen(false);
-              },
-            }, optLabel);
-          })
+          list.length === 0
+            ? h('div', { className: 'custom-dropdown-empty' }, 'No options')
+            : list.map(function(o, i) {
+                return h('div', {
+                  key: i, role: 'option', 'aria-selected': i === selIdx,
+                  className: 'custom-dropdown-item' + (i === selIdx ? ' selected' : '') + (i === hi ? ' hi' : '') + (o.disabled ? ' disabled' : ''),
+                  onMouseEnter: function() { if (!o.disabled) setHi(i); },
+                  onClick: function(e) { e.stopPropagation(); choose(i); },
+                }, h('span', { className: 'custom-dropdown-text' }, o.label));
+              })
         ),
         getPortal()
       )
     : null;
 
-  return h('div', { className: 'custom-dropdown', ref: wrapRef },
+  return h('div', { className: 'custom-dropdown' + (size === 'sm' ? ' sm' : ''), ref: wrapRef },
     h('div', {
-      className: 'custom-dropdown-trigger' + (open ? ' open' : ''),
-      onClick: open_menu,
+      ref: triggerRef,
+      className: 'custom-dropdown-trigger' + (open ? ' open' : '') + (disabled ? ' disabled' : ''),
+      role: 'button', tabIndex: disabled ? -1 : 0,
+      'aria-haspopup': 'listbox', 'aria-expanded': open,
+      onClick: toggle, onKeyDown: onKeyDown,
     },
-      h('span', null, label),
+      h('span', { className: 'custom-dropdown-label' + (sel ? '' : ' placeholder') }, sel ? sel.label : (placeholder || 'Select')),
       h('div', { className: 'custom-dropdown-arrow' })
     ),
     menu

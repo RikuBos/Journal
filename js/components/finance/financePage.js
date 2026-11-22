@@ -23,8 +23,8 @@ function FinDelta({ change, invert, text }) {
   return h('div', { className: 'fin-delta ' + cls }, (up ? 'Up ' : 'Down ') + Math.abs(change).toFixed(1) + '% vs last month');
 }
 
-function FinStats({ rows, cur }) {
-  var o = finOverview(rows);
+function FinStats({ rows, accounts, cur }) {
+  var o = finOverview(rows, accounts);
   var rateText = null;
   if (o.savingsDelta !== null) {
     rateText = { cls: Math.abs(o.savingsDelta) < 0.05 ? 'flat' : (o.savingsDelta >= 0 ? 'up' : 'down'),
@@ -36,7 +36,7 @@ function FinStats({ rows, cur }) {
     h('div', { className: 'stat-block fin-stat' },
       h('div', { className: 'stat-label' }, 'Total Net Worth'),
       h('div', { className: 'stat-value ' + (o.netWorth < 0 ? 'negative' : '') }, finMoney(o.netWorth, cur)),
-      h(FinDelta, { change: o.netChange })
+      o.hasAccounts ? h(FinDelta, { change: o.netChange }) : h(FinDelta, { text: { cls: 'flat', label: 'Add an account to track net worth' } })
     ),
     h('div', { className: 'stat-block fin-stat' },
       h('div', { className: 'stat-label' }, 'Total Income'),
@@ -56,10 +56,10 @@ function FinStats({ rows, cur }) {
   );
 }
 
-function FinTrend({ rows, cur }) {
+function FinTrend({ rows, accounts, cur }) {
   var R = window.Recharts;
   var [range, setRange] = React.useState('1M');
-  var points = React.useMemo(function() { return finTrend(rows, range); }, [rows, range]);
+  var points = React.useMemo(function() { return finTrend(rows, range, accounts); }, [rows, accounts, range]);
   var vals = points.map(function(p) { return p.value; });
   var min = Math.min.apply(null, vals), max = Math.max.apply(null, vals);
   var pad = Math.max((max - min) * 0.2, Math.abs(max) * 0.02, 1);
@@ -205,6 +205,7 @@ function FinAccountModal({ account, owner, onClose, onSave, onDelete, nextColor 
   var editing = !!(account && account.id);
   var [name, setName] = React.useState(account ? account.name : '');
   var [balance, setBalance] = React.useState(account ? String(account.initial_balance) : '0');
+  var [asOf, setAsOf] = React.useState(account ? account.balance_as_of : finToday());
   var [color, setColor] = React.useState(account ? account.color : nextColor);
   var [errors, setErrors] = React.useState({});
   var [serverError, setServerError] = React.useState('');
@@ -218,15 +219,18 @@ function FinAccountModal({ account, owner, onClose, onSave, onDelete, nextColor 
     if (!n) e.name = 'Choose an account';
     if (balance === '' || !isFinite(b) || b < 0) e.balance = 'Enter 0 or more';
     else if (b >= 1e12) e.balance = 'Amount is too large';
+    if (!asOf || isNaN(finParse(asOf).getTime())) e.asOf = 'Choose a date';
+    else if (asOf > finToday()) e.asOf = 'The date cannot be in the future';
     setErrors(e);
     if (Object.keys(e).length) return;
     setBusy(true);
     setServerError('');
     try {
-      await onSave({ name: n, initial_balance: Math.round(b * 100) / 100, color: color }, editing ? account.id : null);
+      await onSave({ name: n, initial_balance: Math.round(b * 100) / 100, balance_as_of: asOf, color: color }, editing ? account.id : null);
       onClose();
     } catch (err) {
-      setServerError(err && err.message ? err.message : 'Could not save the account');
+      var m = err && err.message ? err.message : 'Could not save the account';
+      setServerError(/balance_as_of/.test(m) ? m + '. Run supabase/migrations/20261122_finance_balance_logic.sql in the Supabase SQL Editor.' : m);
       setBusy(false);
     }
   }
@@ -248,6 +252,11 @@ function FinAccountModal({ account, owner, onClose, onSave, onDelete, nextColor 
         h('input', { className: 'input-field', type: 'number', min: 0, step: 'any', value: balance, onChange: function(e) { setBalance(e.target.value); } }),
         errors.balance && h('div', { className: 'input-hint', style: { color: 'var(--red)' } }, errors.balance)
       )
+    ),
+    h('div', { className: 'input-group' },
+      h('label', { className: 'input-label' }, 'Balance as of'),
+      h('input', { className: 'input-field', type: 'date', max: finToday(), value: asOf, onChange: function(e) { setAsOf(e.target.value); } }),
+      errors.asOf ? h('div', { className: 'input-hint', style: { color: 'var(--red)' } }, errors.asOf) : h('div', { className: 'input-hint' }, 'Only transactions on or after this date change the balance.')
     ),
     h('div', { className: 'input-group' },
       h('label', { className: 'input-label' }, 'Card color'),
@@ -341,6 +350,7 @@ function FinWallet({ accounts, rows, cur, owner, onAdd, onEdit, onDelete }) {
               h('div', { className: 'fin-wpanel-row' }, h('span', null, 'Account holder'), h('b', null, owner)),
               h('div', { className: 'fin-wpanel-row' }, h('span', null, 'Balance'), h('b', { className: 'fin-amount ' + (activeStats.balance < 0 ? 'expense' : 'income') }, finMoney(activeStats.balance, cur))),
               h('div', { className: 'fin-wpanel-row' }, h('span', null, 'Initial balance'), h('b', null, finMoney(active.initial_balance, cur))),
+              h('div', { className: 'fin-wpanel-row' }, h('span', null, 'Balance as of'), h('b', null, finDateLabel(active.balance_as_of))),
               h('div', { className: 'fin-wpanel-row' }, h('span', null, 'Income this month'), h('b', { className: 'fin-amount income' }, finMoney(activeStats.monthIncome, cur))),
               h('div', { className: 'fin-wpanel-row' }, h('span', null, 'Expenses this month'), h('b', { className: 'fin-amount expense' }, finMoney(activeStats.monthExpense, cur))),
               h('div', { className: 'fin-wpanel-row' }, h('span', null, 'Transactions this month'), h('b', null, activeStats.monthCount))
@@ -710,9 +720,9 @@ function FinancePage() {
             h('button', { className: 'btn btn-primary', onClick: openAdd }, 'Add Transaction')
           )
         : h('div', null,
-            h(FinStats, { rows: rows, cur: cur }),
+            h(FinStats, { rows: rows, accounts: accounts, cur: cur }),
             h('div', { className: 'fin-main-grid' },
-              h(FinTrend, { rows: rows, cur: cur }),
+              h(FinTrend, { rows: rows, accounts: accounts, cur: cur }),
               h(FinBreakdown, { rows: rows, cur: cur })
             ),
             h('div', { className: 'fin-bottom-grid' },

@@ -196,7 +196,11 @@ var Calc = {
       if (ev.type === 'trade') { pl += ev.pl; count++; if (ev.pl > 0) wins++; }
       points.push({ label: ev.stamp.slice(5, 10), balance: +bal.toFixed(2) });
     });
-    if (!points.length) points.push({ label: 'Start', balance: +startBal.toFixed(2) });
+    if (!points.length) {
+      var endDay = ym === Calc.currentMonthKey() ? new Date().getDate() : new Date(+ym.slice(0, 4), +ym.slice(5, 7), 0).getDate();
+      points.push({ label: ym.slice(5) + '-01', balance: +startBal.toFixed(2) });
+      points.push({ label: ym.slice(5) + '-' + (endDay < 10 ? '0' : '') + endDay, balance: +startBal.toFixed(2) });
+    }
     return { points: points, startBal: startBal, endBal: bal, pl: pl, count: count, wins: wins };
   },
 

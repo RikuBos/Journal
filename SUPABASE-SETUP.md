@@ -57,6 +57,10 @@ With Confirm email turned on, Supabase answers a duplicate sign-up with a user t
 
 Run `supabase/migrations/20261109_finance_transactions.sql` in the SQL Editor after `schema.sql`. It creates `public.finance_transactions` with row level security (select, insert, update and delete only on rows where `auth.uid() = user_id`) and does not touch `user_records` or any other table. Trades, mistakes and the rest of the journal data live as rows in `user_records` and are not affected.
 
+## 11) Finance balance logic
+
+Run `supabase/migrations/20261122_finance_balance_logic.sql` after the two earlier finance migrations. It adds `balance_as_of` (date) to `finance_accounts`, fills existing accounts with the date of their `created_at`, then makes the column required with today's date as the default. It is safe to run on a database that already has data and safe to run twice. Because older accounts get their creation date as baseline, transactions dated before that day stop counting toward that account's balance; edit the account's Balance as of date if you want an earlier baseline.
+
 ## Important notes
 
 - The old app stored data in each browser's IndexedDB. The new version stores data per authenticated Supabase user. Existing IndexedDB data is not automatically uploaded; use the export/import migration above.

@@ -77,22 +77,48 @@ function finNormalize(row) {
 }
 
 function finNormalizeAccount(row) {
-  return Object.assign({}, row, { initial_balance: Number(row.initial_balance) || 0 });
+  var asOf = row.balance_as_of || (row.created_at ? String(row.created_at).slice(0, 10) : finToday());
+  return Object.assign({}, row, { initial_balance: Number(row.initial_balance) || 0, balance_as_of: String(asOf).slice(0, 10) });
+}
+
+function finAccountRows(account, rows) {
+  var today = finToday();
+  return rows.filter(function(r) { return r.account_id === account.id && r.transaction_date >= account.balance_as_of && r.transaction_date <= today; });
 }
 
 function finAccountStats(account, rows) {
-  var income = 0, expense = 0, monthCount = 0, count = 0, monthIncome = 0, monthExpense = 0;
+  var income = 0, expense = 0, monthCount = 0, monthIncome = 0, monthExpense = 0;
   var nowKey = finMonthOf(new Date());
-  rows.forEach(function(r) {
-    if (r.account_id !== account.id) return;
-    count++;
+  var own = finAccountRows(account, rows);
+  own.forEach(function(r) {
     if (r.transaction_date.slice(0, 7) === nowKey) {
       monthCount++;
       if (r.type === 'income') monthIncome += r.amount; else monthExpense += r.amount;
     }
     if (r.type === 'income') income += r.amount; else expense += r.amount;
   });
-  return { balance: account.initial_balance + income - expense, income: income, expense: expense, monthCount: monthCount, count: count, monthIncome: monthIncome, monthExpense: monthExpense };
+  return { balance: account.initial_balance + income - expense, income: income, expense: expense, monthCount: monthCount, count: own.length, monthIncome: monthIncome, monthExpense: monthExpense };
+}
+
+function finBalanceAt(account, rows, dateKey) {
+  if (dateKey < account.balance_as_of) return null;
+  var bal = account.initial_balance;
+  rows.forEach(function(r) {
+    if (r.account_id !== account.id || r.transaction_date < account.balance_as_of || r.transaction_date > dateKey) return;
+    bal += r.type === 'income' ? r.amount : -r.amount;
+  });
+  return bal;
+}
+
+function finNetWorthAt(accounts, rows, dateKey) {
+  return accounts.reduce(function(sum, a) {
+    var b = finBalanceAt(a, rows, dateKey);
+    return b === null ? sum : sum + b;
+  }, 0);
+}
+
+function finNetWorth(accounts, rows) {
+  return accounts.reduce(function(sum, a) { return sum + finAccountStats(a, rows).balance; }, 0);
 }
 
 function finSortRows(rows) {
@@ -116,45 +142,59 @@ function finRate(t) {
   return t.income > 0 ? ((t.income - t.expense) / t.income) * 100 : 0;
 }
 
-function finOverview(rows) {
+function finOverview(rows, accounts) {
+  accounts = accounts || [];
   var all = finTotals(rows);
   var nowKey = finMonthOf(new Date());
   var prevKey = finShiftMonth(nowKey, -1);
   var thisM = finTotals(rows.filter(function(r) { return r.transaction_date.slice(0, 7) === nowKey; }));
   var prevM = finTotals(rows.filter(function(r) { return r.transaction_date.slice(0, 7) === prevKey; }));
-  var prevEnd = finTotals(rows.filter(function(r) { return r.transaction_date.slice(0, 7) <= prevKey; })).net;
+  var netWorth = finNetWorth(accounts, rows);
+  var prevEnd = finNetWorthAt(accounts, rows, finAddDays(nowKey + '-01', -1));
   var hasMonths = thisM.income > 0 && prevM.income > 0;
   return {
-    netWorth: all.net, netChange: finPct(all.net, prevEnd),
+    hasAccounts: accounts.length > 0,
+    netWorth: netWorth, netChange: accounts.length ? finPct(netWorth, prevEnd) : null,
     income: all.income, incomeChange: finPct(thisM.income, prevM.income),
     expense: all.expense, expenseChange: finPct(thisM.expense, prevM.expense),
     savingsRate: finRate(all), savingsDelta: hasMonths ? finRate(thisM) - finRate(prevM) : null,
   };
 }
 
-function finTrend(rows, range) {
+function finTrend(rows, range, accounts) {
+  accounts = accounts || [];
   var today = finToday();
   var spans = { '1W': 7, '1M': 30, '3M': 90, '6M': 182, '1Y': 365 };
   var startKey;
   if (range === 'ALL') {
-    startKey = rows.length ? rows.reduce(function(m, r) { return r.transaction_date < m ? r.transaction_date : m; }, today) : today;
+    startKey = accounts.reduce(function(m, a) { return a.balance_as_of < m ? a.balance_as_of : m; }, today);
+    if (startKey >= today) startKey = finAddDays(today, -1);
   } else {
     startKey = finAddDays(today, -(spans[range] - 1));
   }
-  var base = 0, byDay = {};
-  rows.forEach(function(r) {
-    var delta = r.type === 'income' ? r.amount : -r.amount;
-    if (r.transaction_date < startKey) base += delta;
-    else if (r.transaction_date <= today) byDay[r.transaction_date] = (byDay[r.transaction_date] || 0) + delta;
+  var tracks = accounts.map(function(a) {
+    var by = {}, pre = 0;
+    rows.forEach(function(r) {
+      if (r.account_id !== a.id || r.transaction_date < a.balance_as_of || r.transaction_date > today) return;
+      var d = r.type === 'income' ? r.amount : -r.amount;
+      if (r.transaction_date < startKey) pre += d;
+      else by[r.transaction_date] = (by[r.transaction_date] || 0) + d;
+    });
+    var started = a.balance_as_of < startKey;
+    return { a: a, by: by, started: started, run: started ? a.initial_balance + pre : 0 };
   });
   var keys = [];
   for (var k = startKey; k <= today; k = finAddDays(k, 1)) keys.push(k);
   var step = keys.length > 370 ? 7 : 1;
-  var points = [], run = base;
+  var points = [];
   keys.forEach(function(key, i) {
-    run += byDay[key] || 0;
+    var total = 0;
+    tracks.forEach(function(t) {
+      if (!t.started && key >= t.a.balance_as_of) { t.started = true; t.run = t.a.initial_balance; }
+      if (t.started) { t.run += t.by[key] || 0; total += t.run; }
+    });
     if (step === 1 || i % step === 0 || i === keys.length - 1) {
-      points.push({ key: key, label: finShortDate(key), value: Math.round(run * 100) / 100 });
+      points.push({ key: key, label: finShortDate(key), value: Math.round(total * 100) / 100 });
     }
   });
   return points;
@@ -255,7 +295,7 @@ var FinanceAccountsDB = {
 
   insert: async function(a) {
     var res = await window.sb.from(FIN_ACCOUNT_TABLE)
-      .insert({ user_id: FinanceDB.userId(), name: a.name, initial_balance: a.initial_balance, color: a.color, sort_order: a.sort_order || 0 })
+      .insert({ user_id: FinanceDB.userId(), name: a.name, initial_balance: a.initial_balance, balance_as_of: a.balance_as_of, color: a.color, sort_order: a.sort_order || 0 })
       .select().single();
     if (res.error) throw res.error;
     return finNormalizeAccount(res.data);
@@ -263,7 +303,7 @@ var FinanceAccountsDB = {
 
   update: async function(id, a) {
     var res = await window.sb.from(FIN_ACCOUNT_TABLE)
-      .update({ name: a.name, initial_balance: a.initial_balance, color: a.color })
+      .update({ name: a.name, initial_balance: a.initial_balance, balance_as_of: a.balance_as_of, color: a.color })
       .eq('id', id).eq('user_id', FinanceDB.userId())
       .select().single();
     if (res.error) throw res.error;

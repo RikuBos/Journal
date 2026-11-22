@@ -321,8 +321,8 @@ function TradeForm({ trade, onSave, onClose }) {
             h('div', { className: 'img-overlay' }, h(UI.Icon, { name: 'maximize', size: 16, color: '#fff' }))
           ),
           h('div', { style: { display: 'flex', gap: 4, marginTop: 4 } },
-            h('select', { style: { flex: 1, background: 'rgba(8,9,13,0.8)', border: '1px solid var(--border-1)', borderRadius: 4, padding: '2px 4px', fontSize: 10, color: 'var(--t3)' }, value: img.category, onChange: e => { const upd = [...images]; upd[i] = { ...img, category: e.target.value }; setImages(upd); } },
-              ['Before Entry','Entry','After Exit'].map(c => h('option', { key: c, value: c }, c))
+            h('div', { style: { flex: 1, minWidth: 0 } },
+              h(UI.CustomDropdown, { size: 'sm', value: img.category, onChange: v => { const upd = [...images]; upd[i] = { ...img, category: v }; setImages(upd); }, options: ['Before Entry','Entry','After Exit'] })
             ),
             h('button', { style: { background: 'rgba(245,54,92,0.1)', border: '1px solid rgba(245,54,92,0.2)', borderRadius: 4, padding: '2px 6px', cursor: 'pointer', color: 'var(--red)' }, onClick: () => setImages(p => p.filter((_, idx) => idx !== i)) }, h(UI.Icon, { name: 'trash', size: 11 }))
           )

@@ -139,9 +139,7 @@ function DashboardPage() {
             h('span', { style: { fontSize: 11, color: 'var(--t3)' } }, Calc.monthLabel(monthKey) + '   ' + (monthData ? monthData.count : 0) + ' trades')
           ),
           h('div', { style: { padding: '6px 2px 2px' } },
-            monthData && monthData.points.length > 1
-              ? h(EquityLine, { points: monthData.points, startBal: monthData.startBal, height: 190 })
-              : h('div', { style: { height: 190, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--t3)', fontSize: 12 } }, 'No trades this month yet')
+            monthData && h(EquityLine, { points: monthData.points, startBal: monthData.startBal, height: 190 })
           )
         ),
 

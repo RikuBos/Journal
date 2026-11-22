@@ -108,7 +108,7 @@ A+ mulai 0.90, A 0.78, B 0.62, C 0.46, D 0.30, di bawahnya F.
 
 ## Dashboard dan Archive
 
-- Equity curve menampilkan bulan kalender berjalan, mulai dari balance di awal bulan. Garis putus-putus menandai balance awal bulan. Selain trade, kurva ikut berubah saat ada payout (turun sebesar yang ditarik), deposit tambahan di akun broker/exchange (naik), dan pindah phase (kembali ke starting balance).
+- Equity curve menampilkan bulan kalender berjalan, mulai dari balance di awal bulan. Garis putus-putus menandai balance awal bulan. Account tanpa trade (funded, challenge, maupun broker) tetap menampilkan garis datar di balance awal periode. Selain trade, kurva ikut berubah saat ada payout (turun sebesar yang ditarik), deposit tambahan di akun broker/exchange (naik), dan pindah phase (kembali ke starting balance).
 - P/L harian menampilkan 7 hari kalender terakhir. Tidak ada yang disimpan, hari yang lewat dari 7 hari hilang dari grafik.
 - Analytics > Archive menampilkan equity curve, jumlah trade, win rate, dan P/L untuk setiap bulan sebelumnya yang punya trade. Datanya dihitung dari trade yang ada, tidak ada tabel terpisah.
 
@@ -163,6 +163,16 @@ Data disimpan di tabel `finance_transactions` (bukan `user_records`) dengan kolo
 Edit dan hapus lewat klik kanan pada baris (di All Transactions maupun Recent Transactions). Hapus selalu meminta konfirmasi, dan semua statistik serta grafik langsung ikut berubah.
 
 Kolom Time diambil dari waktu transaksi dicatat (`created_at`), karena tabel hanya menyimpan tanggal. Semua transaksi dimuat sekali (per 1000 baris) dan dipakai bersama oleh Overview dan All Transactions, jadi keduanya selalu sama.
+
+### Saldo account, Net Worth, dan tanggal baseline
+
+- Setiap account finance punya **Balance as of** (tanggal baseline, tidak boleh di masa depan). Saldo account = Initial Balance + Income - Expense, hanya dari transaksi yang terhubung ke account itu dan bertanggal pada atau setelah baseline sampai hari ini. Transaksi sebelum baseline tidak memengaruhi saldo.
+- **Total Net Worth** = jumlah saldo semua account. Transaksi tanpa account tidak memengaruhi Net Worth, tetapi tetap masuk Total Income dan Total Expenses.
+- **Net Worth Trend** dihitung per tanggal dari saldo tiap account. Account baru ikut dihitung mulai tanggal baselinenya, bukan sebelumnya. Perubahan Net Worth dibandingkan dengan akhir bulan lalu.
+- Menghapus account tidak menghapus transaksinya: transaksi menjadi unassigned (account kosong) dan tidak lagi memengaruhi saldo atau Net Worth.
+- Mengubah Initial Balance atau Balance as of langsung memperbarui saldo, Net Worth, dan grafik.
+- Tidak ada fitur transfer antar-account dan debt/liabilities belum dihitung dalam Net Worth.
+- Migration: `supabase/migrations/20261122_finance_balance_logic.sql` (kolom `balance_as_of`, diisi dari tanggal `created_at` untuk account lama).
 
 ## Discord
 
