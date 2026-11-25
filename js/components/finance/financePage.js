@@ -557,7 +557,7 @@ function FinTransactions({ rows, accounts, cur, onAdd, onEdit, onDelete }) {
         h('label', { className: 'input-label' }, 'To'),
         h('input', { className: 'input-field', type: 'date', value: to, onChange: function(e) { setTo(e.target.value); } })
       ),
-      h('div', { className: 'input-group' },
+      h('div', { className: 'input-group fin-sort' },
         h('label', { className: 'input-label' }, 'Sort by'),
         h(UI.CustomDropdown, { value: sort, onChange: setSort, options: [
           { value: 'newest', label: 'Newest first' }, { value: 'oldest', label: 'Oldest first' },

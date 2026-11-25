@@ -1384,3 +1384,12 @@ body { font-variant-numeric: tabular-nums; }
   .filter-bar .search-wrap { flex: 1 1 100%; max-width: none; }
   .fin-toolbar { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+
+.fin-toolbar { grid-template-columns: repeat(7, minmax(0, 1fr)); }
+@media (max-width: 1200px) {
+  .fin-toolbar { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .fin-toolbar .fin-sort { grid-column: span 2; }
+}
+@media (max-width: 700px) {
+  .fin-toolbar { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
