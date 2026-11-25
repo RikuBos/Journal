@@ -387,7 +387,7 @@ function FinWallet({ accounts, rows, cur, owner, onAdd, onEdit, onDelete }) {
   );
 }
 
-function FinTxModal({ tx, accounts, onClose, onSave, onGoAccounts }) {
+function FinTxModal({ tx, accounts, rows, cur, onClose, onSave, onGoAccounts }) {
   var editing = !!(tx && tx.id);
   var [type, setType] = React.useState(tx && tx.type ? tx.type : 'expense');
   var [category, setCategory] = React.useState(tx ? tx.category || '' : '');
@@ -411,6 +411,18 @@ function FinTxModal({ tx, accounts, onClose, onSave, onGoAccounts }) {
     if (!accountId) e.account = 'Choose an account';
     setErrors(e);
     if (Object.keys(e).length) return;
+    var candidate = { id: editing ? tx.id : '__new__', account_id: accountId, type: type, amount: a, transaction_date: date };
+    var after = rows.filter(function(r) { return !editing || r.id !== tx.id; }).concat(candidate);
+    var ids = [accountId].concat(editing && tx.account_id && tx.account_id !== accountId ? [tx.account_id] : []);
+    var guard = finGuardMessage(accounts, after, ids);
+    if (guard) {
+      var acc = accounts.find(function(x) { return x.id === accountId; });
+      var without = rows.filter(function(r) { return !editing || r.id !== tx.id; });
+      var avail = acc ? finBalanceAt(acc, without, date) : null;
+      var friendly = type === 'expense' && acc && avail !== null && avail >= 0 && guard.indexOf(acc.name) >= 0;
+      setErrors({ amount: friendly ? 'Not enough balance in ' + acc.name + '. Available on ' + finDateLabel(date) + ': ' + finMoney(avail, cur) : guard });
+      return;
+    }
     var keepName = editing && tx.transaction_name && tx.transaction_name !== tx.category;
     setBusy(true);
     setServerError('');
@@ -646,6 +658,10 @@ function FinancePage() {
   }, []);
 
   async function saveTx(payload, id) {
+    var existing = id ? rows.find(function(r) { return r.id === id; }) : null;
+    var after = rows.filter(function(r) { return r.id !== id; }).concat(Object.assign({ id: id || '__new__' }, payload));
+    var guard = finGuardMessage(accounts, after, [payload.account_id].concat(existing && existing.account_id && existing.account_id !== payload.account_id ? [existing.account_id] : []));
+    if (guard) throw new Error(guard);
     var row = id ? await FinanceDB.update(id, payload) : await FinanceDB.insert(payload);
     setRows(function(prev) { return finSortRows(prev.filter(function(r) { return r.id !== row.id; }).concat(row)); });
     UI.toast(id ? 'Transaction updated' : 'Transaction added', 'success');
@@ -654,6 +670,12 @@ function FinancePage() {
   async function removeTx() {
     var target = delTx;
     if (!target) return;
+    var guard = target.account_id ? finGuardMessage(accounts, rows.filter(function(r) { return r.id !== target.id; }), [target.account_id]) : null;
+    if (guard) {
+      UI.toast('Cannot delete: ' + guard, 'error');
+      setDelTx(null);
+      return;
+    }
     try {
       await FinanceDB.remove(target.id);
       setRows(function(prev) { return prev.filter(function(r) { return r.id !== target.id; }); });
@@ -665,6 +687,11 @@ function FinancePage() {
   }
 
   async function saveAccount(payload, id) {
+    if (id) {
+      var current = accounts.find(function(a) { return a.id === id; });
+      var guard = current ? finGuardMessage([Object.assign({}, current, payload)], rows, [id]) : null;
+      if (guard) throw new Error(guard);
+    }
     var row = id ? await FinanceAccountsDB.update(id, payload) : await FinanceAccountsDB.insert(Object.assign({}, payload, { sort_order: accounts.length }));
     setAccounts(function(prev) {
       var next = id ? prev.map(function(a) { return a.id === id ? row : a; }) : prev.concat(row);
@@ -742,7 +769,7 @@ function FinancePage() {
       })
     ),
 
-    modal && h(FinTxModal, { tx: modal.id ? modal : null, accounts: accounts, onClose: function() { setModal(null); }, onSave: saveTx,
+    modal && h(FinTxModal, { tx: modal.id ? modal : null, accounts: accounts, rows: rows, cur: cur, onClose: function() { setModal(null); }, onSave: saveTx,
       onGoAccounts: function() { setModal(null); setTab('accounts'); } }),
     accModal && h(FinAccountModal, { account: accModal.id ? accModal : null, owner: owner, nextColor: FIN_ACCOUNT_COLORS[accounts.length % FIN_ACCOUNT_COLORS.length],
       onClose: function() { setAccModal(null); }, onSave: saveAccount, onDelete: function(a) { setDelAcc(a); } }),

@@ -110,6 +110,27 @@ function finBalanceAt(account, rows, dateKey) {
   return bal;
 }
 
+function finOverdraft(account, rows) {
+  var own = rows.filter(function(r) { return r.account_id === account.id && r.transaction_date >= account.balance_as_of; })
+    .sort(function(a, b) { return a.transaction_date.localeCompare(b.transaction_date) || (a.type === b.type ? 0 : (a.type === 'income' ? -1 : 1)); });
+  var bal = account.initial_balance;
+  for (var i = 0; i < own.length; i++) {
+    bal += own[i].type === 'income' ? own[i].amount : -own[i].amount;
+    if (bal < -0.005) return { date: own[i].transaction_date, balance: bal };
+  }
+  return null;
+}
+
+function finGuardMessage(accounts, rows, ids) {
+  for (var i = 0; i < ids.length; i++) {
+    var acc = accounts.find(function(a) { return a.id === ids[i]; });
+    if (!acc) continue;
+    var v = finOverdraft(acc, rows);
+    if (v) return 'Not enough balance in ' + acc.name + ': it would drop below zero on ' + finDateLabel(v.date) + '.';
+  }
+  return null;
+}
+
 function finNetWorthAt(accounts, rows, dateKey) {
   return accounts.reduce(function(sum, a) {
     var b = finBalanceAt(a, rows, dateKey);

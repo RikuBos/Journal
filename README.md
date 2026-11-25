@@ -171,6 +171,7 @@ Kolom Time diambil dari waktu transaksi dicatat (`created_at`), karena tabel han
 - **Net Worth Trend** dihitung per tanggal dari saldo tiap account. Account baru ikut dihitung mulai tanggal baselinenya, bukan sebelumnya. Perubahan Net Worth dibandingkan dengan akhir bulan lalu.
 - Menghapus account tidak menghapus transaksinya: transaksi menjadi unassigned (account kosong) dan tidak lagi memengaruhi saldo atau Net Worth.
 - Mengubah Initial Balance atau Balance as of langsung memperbarui saldo, Net Worth, dan grafik.
+- **Saldo account tidak boleh minus.** Pengeluaran yang melebihi saldo ditolak dengan pesan saldo yang tersedia. Aturan yang sama berlaku untuk mengedit transaksi, menghapus pemasukan yang membiayai pengeluaran, mengubah Initial Balance, dan memindahkan transaksi ke account lain: perubahan yang membuat saldo di tanggal mana pun di bawah nol ditolak.
 - Tidak ada fitur transfer antar-account dan debt/liabilities belum dihitung dalam Net Worth.
 - Migration: `supabase/migrations/20261122_finance_balance_logic.sql` (kolom `balance_as_of`, diisi dari tanggal `created_at` untuk account lama).
 

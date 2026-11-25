@@ -153,7 +153,7 @@ function TradesPage() {
     ),
 
     h('div', { className: 'page-body' },
-      h('div', { style: { display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap', alignItems: 'center' } },
+      h('div', { className: 'filter-bar' },
         h(UI.SearchInput, { value: search, onChange: setSearch }),
         h(UI.CustomDropdown, {
           value: filterAcc,
@@ -170,14 +170,14 @@ function TradesPage() {
         h(UI.CustomDropdown, {
           value: filterDir,
           onChange: function(v) { setFilterDir(v); },
-          placeholder: 'Direction',
-          options: [{ value: '', label: 'Direction' }, { value: 'Long', label: 'Long' }, { value: 'Short', label: 'Short' }],
+          placeholder: 'All Directions',
+          options: [{ value: '', label: 'All Directions' }, { value: 'Long', label: 'Long' }, { value: 'Short', label: 'Short' }],
         }),
         h(UI.CustomDropdown, {
           value: filterGrade,
           onChange: function(v) { setFilterGrade(v); },
-          placeholder: 'Grade',
-          options: [{ value: '', label: 'Grade' }].concat(GRADES.map(function(g) { return { value: g, label: g }; })),
+          placeholder: 'All Grades',
+          options: [{ value: '', label: 'All Grades' }].concat(GRADES.map(function(g) { return { value: g, label: g }; })),
         }),
         hasFilter && h('button', { className: 'btn btn-ghost btn-sm', onClick: () => { setSearch(''); setFilterSetup(''); setFilterDir(''); setFilterGrade(''); } }, 'Clear filters')
       ),
